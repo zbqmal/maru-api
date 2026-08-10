@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+.env
+.env.local
+.env.test
+.env.test.local
+.DS_Store
