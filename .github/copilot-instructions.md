@@ -10,6 +10,7 @@
 - AWS S3 for media storage
 - OpenAI API for the global daily question
 - Redis + BullMQ only when background jobs are introduced
+- OpenAPI via @nestjs/swagger (Swagger UI served at /docs)
 
 ## Package Manager
 
@@ -21,6 +22,8 @@
 - **Unit:** Jest
 - **Integration:** Jest + Supertest
 - **API E2E:** Jest + Supertest
+- Place unit tests in adjacent `__tests__` folders under `src`.
+- Keep test typings/config in `tsconfig.spec.json` (Jest + Node types), separate from app `tsconfig.json`.
 - Use a real test database for database integration tests when practical.
 
 ## Deployment
