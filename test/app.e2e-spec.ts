@@ -16,7 +16,9 @@ describe('HealthController (e2e)', () => {
   });
 
   it('/health (GET)', () => {
-    return request(app.getHttpServer())
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    return request(httpServer)
       .get('/health')
       .expect(200)
       .expect(({ body }: { body: Record<string, unknown> }) => {

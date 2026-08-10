@@ -46,7 +46,11 @@ function readPort(config: Record<string, unknown>, key: string): number {
 
   const parsedValue = Number(value);
 
-  if (!Number.isInteger(parsedValue) || parsedValue < 1 || parsedValue > 65535) {
+  if (
+    !Number.isInteger(parsedValue) ||
+    parsedValue < 1 ||
+    parsedValue > 65535
+  ) {
     throw new Error(`${key} must be an integer between 1 and 65535.`);
   }
 
