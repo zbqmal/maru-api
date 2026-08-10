@@ -41,7 +41,7 @@ function readPort(config: Record<string, unknown>, key: string): number {
   const value = readOptionalString(config, key);
 
   if (value === undefined) {
-    return 3000;
+    return 3001;
   }
 
   const parsedValue = Number(value);
