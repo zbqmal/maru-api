@@ -84,7 +84,7 @@ export function validateEnvironment(
   const testDatabaseUrl = readDatabaseUrl(config, 'TEST_DATABASE_URL');
 
   const resolvedDatabaseUrl =
-    nodeEnvironment === 'test' ? testDatabaseUrl ?? databaseUrl : databaseUrl;
+    nodeEnvironment === 'test' ? (testDatabaseUrl ?? databaseUrl) : databaseUrl;
 
   if (resolvedDatabaseUrl === undefined) {
     throw new Error(

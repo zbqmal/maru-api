@@ -1,15 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+
+process.env.DATABASE_URL ??=
+  'postgresql://localhost:5432/maru_test?schema=public';
+
 import { AppModule } from './../src/app.module';
 
 describe('HealthController (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    process.env.DATABASE_URL ??=
-      'postgresql://localhost:5432/maru_test?schema=public';
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -33,6 +34,8 @@ describe('HealthController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 });
