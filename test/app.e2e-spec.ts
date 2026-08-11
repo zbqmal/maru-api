@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+
+process.env.DATABASE_URL ??=
+  'postgresql://localhost:5432/maru_test?schema=public';
+
 import { AppModule } from './../src/app.module';
 
 describe('HealthController (e2e)', () => {
@@ -22,13 +26,16 @@ describe('HealthController (e2e)', () => {
       .get('/health')
       .expect(200)
       .expect(({ body }: { body: Record<string, unknown> }) => {
-        expect(body.status).toBe('ok');
+        expect(['ok', 'degraded']).toContain(body.status);
         expect(typeof body.timestamp).toBe('string');
         expect(typeof body.uptime).toBe('number');
+        expect(typeof body.database).toBe('object');
       });
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 });

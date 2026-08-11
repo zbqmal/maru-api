@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class HealthResponseDto {
   @ApiProperty({ example: 'ok' })
-  status!: 'ok';
+  status!: 'ok' | 'degraded';
 
   @ApiProperty({
     format: 'date-time',
@@ -12,4 +12,13 @@ export class HealthResponseDto {
 
   @ApiProperty({ example: 123.45 })
   uptime!: number;
+
+  @ApiProperty({
+    example: {
+      status: 'up',
+    },
+  })
+  database!: {
+    status: 'up' | 'down';
+  };
 }

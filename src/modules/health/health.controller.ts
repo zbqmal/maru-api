@@ -14,7 +14,7 @@ export class HealthController {
     type: HealthResponseDto,
   })
   @Get()
-  getHealth(): HealthResponseDto {
+  getHealth(): Promise<HealthResponseDto> {
     return this.healthService.getHealth();
   }
 }

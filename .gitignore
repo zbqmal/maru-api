@@ -8,7 +8,5 @@ node_modules
 !.yarn/sdks
 !.yarn/versions
 .env
-.env.local
 .env.test
-.env.test.local
 .DS_Store
