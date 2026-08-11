@@ -8,10 +8,7 @@ import { HealthModule } from './modules/health/health.module';
   imports: [
     ConfigModule.forRoot({
       cache: true,
-      envFilePath:
-        process.env.NODE_ENV === 'test'
-          ? ['.env.test.local', '.env.test', '.env.local', '.env']
-          : ['.env.local', '.env'],
+      envFilePath: process.env.NODE_ENV === 'test' ? ['.env.test'] : ['.env'],
       isGlobal: true,
       validate: validateEnvironment,
     }),

@@ -80,24 +80,25 @@ export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
   const nodeEnvironment = readNodeEnvironment(config, 'NODE_ENV');
+  const port = readPort(config, 'PORT');
   const databaseUrl = readDatabaseUrl(config, 'DATABASE_URL');
   const testDatabaseUrl = readDatabaseUrl(config, 'TEST_DATABASE_URL');
 
   const resolvedDatabaseUrl =
-    nodeEnvironment === 'test' ? (testDatabaseUrl ?? databaseUrl) : databaseUrl;
+    nodeEnvironment === 'test' ? testDatabaseUrl : databaseUrl;
 
+  console.log('resolvedDatabaseUrl:', resolvedDatabaseUrl);
   if (resolvedDatabaseUrl === undefined) {
     throw new Error(
       nodeEnvironment === 'test'
-        ? 'Provide TEST_DATABASE_URL or DATABASE_URL when NODE_ENV=test.'
+        ? 'TEST_DATABASE_URL is required when NODE_ENV=test.'
         : 'DATABASE_URL is required.',
     );
   }
 
   return {
     NODE_ENV: nodeEnvironment,
-    PORT: readPort(config, 'PORT'),
+    PORT: port,
     DATABASE_URL: resolvedDatabaseUrl,
-    TEST_DATABASE_URL: testDatabaseUrl,
   };
 }
