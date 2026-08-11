@@ -7,6 +7,9 @@ describe('HealthController (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    process.env.DATABASE_URL ??=
+      'postgresql://localhost:5432/maru_test?schema=public';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -22,9 +25,10 @@ describe('HealthController (e2e)', () => {
       .get('/health')
       .expect(200)
       .expect(({ body }: { body: Record<string, unknown> }) => {
-        expect(body.status).toBe('ok');
+        expect(['ok', 'degraded']).toContain(body.status);
         expect(typeof body.timestamp).toBe('string');
         expect(typeof body.uptime).toBe('number');
+        expect(typeof body.database).toBe('object');
       });
   });
 

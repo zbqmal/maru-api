@@ -1,0 +1,1 @@
+CREATE DATABASE maru_test;

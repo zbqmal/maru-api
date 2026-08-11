@@ -10,4 +10,6 @@ export type NodeEnvironment = (typeof nodeEnvironments)[number];
 export interface EnvironmentVariables {
   NODE_ENV: NodeEnvironment;
   PORT: number;
+  DATABASE_URL: string;
+  TEST_DATABASE_URL?: string;
 }

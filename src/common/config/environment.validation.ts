@@ -57,11 +57,47 @@ function readPort(config: Record<string, unknown>, key: string): number {
   return parsedValue;
 }
 
+function readDatabaseUrl(
+  config: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = readOptionalString(config, key);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  try {
+    new URL(value);
+  } catch {
+    throw new Error(`${key} must be a valid URL.`);
+  }
+
+  return value;
+}
+
 export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
+  const nodeEnvironment = readNodeEnvironment(config, 'NODE_ENV');
+  const databaseUrl = readDatabaseUrl(config, 'DATABASE_URL');
+  const testDatabaseUrl = readDatabaseUrl(config, 'TEST_DATABASE_URL');
+
+  const resolvedDatabaseUrl =
+    nodeEnvironment === 'test' ? testDatabaseUrl ?? databaseUrl : databaseUrl;
+
+  if (resolvedDatabaseUrl === undefined) {
+    throw new Error(
+      nodeEnvironment === 'test'
+        ? 'Provide TEST_DATABASE_URL or DATABASE_URL when NODE_ENV=test.'
+        : 'DATABASE_URL is required.',
+    );
+  }
+
   return {
-    NODE_ENV: readNodeEnvironment(config, 'NODE_ENV'),
+    NODE_ENV: nodeEnvironment,
     PORT: readPort(config, 'PORT'),
+    DATABASE_URL: resolvedDatabaseUrl,
+    TEST_DATABASE_URL: testDatabaseUrl,
   };
 }
