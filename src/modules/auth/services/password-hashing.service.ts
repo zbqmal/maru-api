@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
-
-const scryptAsync = promisify(scrypt);
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 const SCRYPT_PREFIX = 'scrypt';
 const SCRYPT_N = 16384;
 const SCRYPT_R = 8;
@@ -18,12 +15,14 @@ export class PasswordHashingService {
     }
 
     const salt = randomBytes(16).toString('base64url');
-    const hash = (await scryptAsync(password, salt, SCRYPT_KEYLEN, {
-      N: SCRYPT_N,
-      r: SCRYPT_R,
-      p: SCRYPT_P,
-      maxmem: MAX_MEMORY,
-    })) as Buffer;
+    const hash = await Promise.resolve(
+      scryptSync(password, salt, SCRYPT_KEYLEN, {
+        N: SCRYPT_N,
+        r: SCRYPT_R,
+        p: SCRYPT_P,
+        maxmem: MAX_MEMORY,
+      }),
+    );
 
     return [
       SCRYPT_PREFIX,
@@ -52,12 +51,14 @@ export class PasswordHashingService {
       return false;
     }
 
-    const candidateHash = (await scryptAsync(password, salt, hashBuffer.length, {
-      N: n,
-      r,
-      p,
-      maxmem: MAX_MEMORY,
-    })) as Buffer;
+    const candidateHash = await Promise.resolve(
+      scryptSync(password, salt, hashBuffer.length, {
+        N: n,
+        r,
+        p,
+        maxmem: MAX_MEMORY,
+      }),
+    );
 
     if (candidateHash.length !== hashBuffer.length) {
       return false;

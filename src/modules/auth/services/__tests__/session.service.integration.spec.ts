@@ -16,7 +16,9 @@ describe('SessionService (integration)', () => {
 
   beforeAll(async () => {
     if (!process.env.TEST_DATABASE_URL) {
-      throw new Error('TEST_DATABASE_URL or DATABASE_URL must be set for tests.');
+      throw new Error(
+        'TEST_DATABASE_URL or DATABASE_URL must be set for tests.',
+      );
     }
 
     const moduleRef: TestingModule = await Test.createTestingModule({
