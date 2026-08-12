@@ -87,7 +87,6 @@ export function validateEnvironment(
   const resolvedDatabaseUrl =
     nodeEnvironment === 'test' ? testDatabaseUrl : databaseUrl;
 
-  console.log('resolvedDatabaseUrl:', resolvedDatabaseUrl);
   if (resolvedDatabaseUrl === undefined) {
     throw new Error(
       nodeEnvironment === 'test'
