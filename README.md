@@ -22,8 +22,14 @@ Copy `.env.example` to `.env` and fill values:
 cp .env.example .env
 ```
 
-- `DATABASE_URL` is used for development/runtime DB access.
-- `TEST_DATABASE_URL` is used when `NODE_ENV=test`; if omitted, `DATABASE_URL` is used.
+| Variable           | Required              | Default       | Description                                                                    |
+| ------------------ | --------------------- | ------------- | ------------------------------------------------------------------------------ |
+| `NODE_ENV`         | No                    | `development` | Runtime environment: `development`, `test`, or `production`                    |
+| `PORT`             | No                    | `3001`        | TCP port the HTTP server listens on (1–65535)                                  |
+| `DATABASE_URL`     | Yes (non-test)        | —             | PostgreSQL connection URL used in development and production                   |
+| `TEST_DATABASE_URL`| Yes (when `NODE_ENV=test`) | —        | PostgreSQL connection URL used during testing; falls back to `DATABASE_URL` if absent |
+
+> **Note:** When `NODE_ENV=test`, `TEST_DATABASE_URL` takes precedence over `DATABASE_URL`. If `TEST_DATABASE_URL` is not set and `NODE_ENV=test`, startup will fail.
 
 ## Local PostgreSQL with Docker
 
