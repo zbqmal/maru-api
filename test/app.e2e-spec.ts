@@ -53,7 +53,7 @@ describe('HealthController (e2e)', () => {
       .expect(({ body }: { body: Record<string, unknown> }) => {
         expect(body.statusCode).toBe(404);
         expect(typeof body.message).toBe('string');
-        expect(typeof body.path).toBe('/does-not-exist');
+        expect(body.path).toBe('/does-not-exist');
         expect(typeof body.timestamp).toBe('string');
       });
   });
