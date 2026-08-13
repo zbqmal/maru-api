@@ -1,11 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { EnvironmentVariables } from './common/config/environment.variables';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { createSwaggerDocument } from './common/swagger/swagger-document';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -24,13 +25,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService<EnvironmentVariables, true>);
   const port = configService.getOrThrow<number>('PORT');
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('MARU API')
-    .setDescription('MARU backend API documentation')
-    .setVersion('1.0.0')
-    .addCookieAuth('maru_session', { type: 'apiKey', in: 'cookie' }, 'session')
-    .build();
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  const swaggerDocument = createSwaggerDocument(app);
   SwaggerModule.setup('docs', app, swaggerDocument);
 
   await app.listen(port);

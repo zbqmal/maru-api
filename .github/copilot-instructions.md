@@ -45,6 +45,7 @@
 - Do not route uploaded image binaries through the API when direct S3 upload with presigned URLs is appropriate.
 - Do not add dependencies unless they are clearly necessary.
 - Add or update tests for meaningful behavior changes.
+- Always update `docs/api-contracts` whenever API changes require contract updates.
 
 # Backend Implementation PR Guidelines (Not Planning PR)
 
