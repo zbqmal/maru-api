@@ -77,6 +77,18 @@ yarn start:dev
 Swagger: `http://localhost:3001/docs`  
 Health: `http://localhost:3001/health`
 
+## API Contract
+
+The checked-in API contract lives in `docs/api-contracts/openapi.json`.
+
+Whenever the API surface changes, refresh the contract before committing:
+
+```bash
+yarn api-contract:generate
+```
+
+Commit the API implementation change and the updated `docs/api-contracts` files together so `maru-web` can sync the same contract.
+
 ## Test
 
 ```bash
