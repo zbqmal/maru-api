@@ -45,7 +45,7 @@
 - Do not route uploaded image binaries through the API when direct S3 upload with presigned URLs is appropriate.
 - Do not add dependencies unless they are clearly necessary.
 - Add or update tests for meaningful behavior changes.
-- 항상 API 업데이트가 있을 때마다 `docs/api-contracts`를 업데이트해야 할 상황이 생기면 무조건 `docs/api-contracts`를 업데이트한다.
+- Always update `docs/api-contracts` whenever API changes require contract updates.
 
 # Backend Implementation PR Guidelines (Not Planning PR)
 
