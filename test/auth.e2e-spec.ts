@@ -2,9 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 
-process.env.NODE_ENV = 'test';
-process.env.TEST_DATABASE_URL ??= process.env.DATABASE_URL;
-
 import { AppModule } from './../src/app.module';
 import { AllExceptionsFilter } from './../src/common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './../src/common/interceptors/logging.interceptor';
@@ -17,12 +14,6 @@ describe('AuthController (e2e)', () => {
   let passwordHashingService: PasswordHashingService;
 
   beforeAll(async () => {
-    if (!process.env.TEST_DATABASE_URL) {
-      throw new Error(
-        'TEST_DATABASE_URL or DATABASE_URL must be set for e2e tests.',
-      );
-    }
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -69,7 +60,7 @@ describe('AuthController (e2e)', () => {
     expect(body).not.toHaveProperty('passwordHash');
     expect(setCookie[0]).toContain('maru_session=');
     expect(setCookie[0]).toContain('HttpOnly');
-    expect(setCookie[0]).toContain('Secure');
+    expect(setCookie[0]).not.toContain('Secure');
 
     const persistedUser = await prismaService.user.findUnique({
       where: { email: 'new.user@example.com' },

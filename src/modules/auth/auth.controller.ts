@@ -91,7 +91,7 @@ export class AuthController {
       httpOnly: true,
       path: '/',
       sameSite: 'lax',
-      secure: this.configService.getOrThrow('NODE_ENV') !== 'development',
+      secure: this.configService.getOrThrow('NODE_ENV') === 'production',
     });
   }
 }

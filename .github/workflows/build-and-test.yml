@@ -69,5 +69,8 @@ jobs:
       - name: Unit tests
         run: yarn test
 
+      - name: End-to-end tests
+        run: yarn test:e2e
+
       - name: Build
         run: yarn build

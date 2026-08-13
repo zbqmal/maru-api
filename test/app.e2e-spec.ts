@@ -2,11 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 
-process.env.NODE_ENV = 'test';
-process.env.TEST_DATABASE_URL ??=
-  process.env.DATABASE_URL ??
-  'postgresql://localhost:5432/maru_test?schema=public';
-
 import { AppModule } from './../src/app.module';
 import { AllExceptionsFilter } from './../src/common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './../src/common/interceptors/logging.interceptor';

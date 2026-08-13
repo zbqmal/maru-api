@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { PasswordHashingService } from './services/password-hashing.service';
 import { SessionService } from './services/session.service';
+import { normalizeEmail } from './utils/string.util';
 
 @Injectable()
 export class AuthService {
@@ -19,7 +20,7 @@ export class AuthService {
   ) {}
 
   async register(input: RegisterDto) {
-    const email = this.normalizeEmail(input.email);
+    const email = normalizeEmail(input.email);
     const existingUser = await this.userService.findByEmail(email);
 
     if (existingUser !== null) {
@@ -58,7 +59,7 @@ export class AuthService {
   }
 
   async login(input: LoginDto) {
-    const email = this.normalizeEmail(input.email);
+    const email = normalizeEmail(input.email);
     const user = await this.userService.findByEmail(email);
 
     if (user === null) {
@@ -79,9 +80,5 @@ export class AuthService {
     });
 
     return { user, session, token };
-  }
-
-  private normalizeEmail(email: string): string {
-    return email.trim().toLowerCase();
   }
 }
