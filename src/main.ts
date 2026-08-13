@@ -28,6 +28,7 @@ async function bootstrap() {
     .setTitle('MARU API')
     .setDescription('MARU backend API documentation')
     .setVersion('1.0.0')
+    .addCookieAuth('maru_session', { type: 'apiKey', in: 'cookie' }, 'session')
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument);
