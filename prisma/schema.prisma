@@ -11,7 +11,7 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique @db.VarChar(320)
   passwordHash    String    @map("password_hash")
-  name            String?   @db.VarChar(100)
+  name            String    @db.VarChar(100)
   birthday        DateTime? @db.Date
   profileImageKey String?   @map("profile_image_key") @db.VarChar(255)
   createdAt       DateTime  @default(now()) @map("created_at")

@@ -48,6 +48,7 @@ describe('SessionService (integration)', () => {
       data: {
         email: 'session-owner@example.com',
         passwordHash: 'placeholder-password-hash',
+        name: 'Session Owner',
       },
     });
 
@@ -70,6 +71,7 @@ describe('SessionService (integration)', () => {
       data: {
         email: 'expired-session-owner@example.com',
         passwordHash: 'placeholder-password-hash',
+        name: 'Expired Session Owner',
       },
     });
 
@@ -88,6 +90,7 @@ describe('SessionService (integration)', () => {
       data: {
         email: 'revoked-session-owner@example.com',
         passwordHash: 'placeholder-password-hash',
+        name: 'Revoked Session Owner',
       },
     });
 

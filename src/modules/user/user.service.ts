@@ -4,7 +4,7 @@ import { PrismaService } from '../database/prisma.service';
 interface CreateUserInput {
   email: string;
   passwordHash: string;
-  name?: string;
+  name: string;
   birthday?: Date;
   profileImageKey?: string;
 }
