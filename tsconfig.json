@@ -21,13 +21,12 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
     "strictBindCallApply": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node", "jest"]
   },
   "exclude": [
     "node_modules",
     "dist",
-    "test",
-    "**/*.spec.ts",
-    "**/*.e2e-spec.ts"
+    "test"
   ]
 }
