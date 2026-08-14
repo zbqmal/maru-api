@@ -190,4 +190,91 @@ describe('AuthController (e2e)', () => {
     expect(response.status).toBe(401);
     expect(body['message']).toBe('Authentication required.');
   });
+
+  it('logs out an authenticated user, revokes session, and clears the cookie', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const registerResponse = await request(httpServer).post('/register').send({
+      email: 'logout-user@example.com',
+      password: 'Str0ngPassword!',
+      name: 'Logout User',
+    });
+    const sessionCookie = registerResponse.headers['set-cookie'][0] as string;
+
+    const logoutResponse = await request(httpServer)
+      .post('/logout')
+      .set('Cookie', sessionCookie);
+
+    expect(logoutResponse.status).toBe(204);
+
+    const setCookieHeader = logoutResponse.headers['set-cookie'] as
+      | string[]
+      | undefined;
+    const clearedCookie = setCookieHeader?.find((c) =>
+      c.startsWith('maru_session='),
+    );
+    expect(clearedCookie).toBeDefined();
+    expect(clearedCookie).toContain('maru_session=;');
+
+    const meResponse = await request(httpServer)
+      .get('/me')
+      .set('Cookie', sessionCookie);
+    expect(meResponse.status).toBe(401);
+  });
+
+  it('rejects logout without a session cookie', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const response = await request(httpServer).post('/logout');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects /me requests after the session is revoked', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const registerResponse = await request(httpServer).post('/register').send({
+      email: 'revoked-session-user@example.com',
+      password: 'Str0ngPassword!',
+      name: 'Revoked Session User',
+    });
+    const sessionCookie = registerResponse.headers['set-cookie'][0] as string;
+
+    await request(httpServer).post('/logout').set('Cookie', sessionCookie);
+
+    const meResponse = await request(httpServer)
+      .get('/me')
+      .set('Cookie', sessionCookie);
+    const body = meResponse.body as Record<string, unknown>;
+
+    expect(meResponse.status).toBe(401);
+    expect(body['message']).toBe('Authentication required.');
+  });
+
+  it('rejects /me requests with an expired session', async () => {
+    const registerResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/register')
+      .send({
+        email: 'expired-session-user@example.com',
+        password: 'Str0ngPassword!',
+        name: 'Expired User',
+      });
+    const registeredBody = registerResponse.body as Record<string, unknown>;
+    const userId = registeredBody['id'] as string;
+
+    await prismaService.session.updateMany({
+      where: { userId },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+
+    const sessionCookie = registerResponse.headers['set-cookie'][0] as string;
+    const meResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get('/me')
+      .set('Cookie', sessionCookie);
+    const body = meResponse.body as Record<string, unknown>;
+
+    expect(meResponse.status).toBe(401);
+    expect(body['message']).toBe('Authentication required.');
+  });
 });

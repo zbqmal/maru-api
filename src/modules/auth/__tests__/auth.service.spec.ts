@@ -30,6 +30,7 @@ describe('AuthService', () => {
 
   const sessionServiceMock = {
     createSession: jest.fn(),
+    revokeSessionByToken: jest.fn(),
   } satisfies Partial<Record<keyof SessionService, jest.Mock>>;
 
   let authService: AuthService;
@@ -109,5 +110,21 @@ describe('AuthService', () => {
         password: 'wrong-password',
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('revokes the session on logout', async () => {
+    sessionServiceMock.revokeSessionByToken.mockResolvedValue(true);
+
+    await authService.logout('some-session-token');
+
+    expect(sessionServiceMock.revokeSessionByToken).toHaveBeenCalledWith(
+      'some-session-token',
+    );
+  });
+
+  it('does not throw if logout is called with an already-revoked token', async () => {
+    sessionServiceMock.revokeSessionByToken.mockResolvedValue(false);
+
+    await expect(authService.logout('revoked-token')).resolves.toBeUndefined();
   });
 });
