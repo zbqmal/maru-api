@@ -58,6 +58,10 @@ export class AuthService {
     return { user, session, token };
   }
 
+  async logout(token: string): Promise<void> {
+    await this.sessionService.revokeSessionByToken(token);
+  }
+
   async login(input: LoginDto) {
     const email = normalizeEmail(input.email);
     const user = await this.userService.findByEmail(email);

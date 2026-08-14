@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   ApiCookieAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -27,6 +29,8 @@ import { RegisterDto } from './dto/register.dto';
 import { SessionAuthGuard } from './guards/session-auth.guard';
 import { SESSION_COOKIE_NAME } from './constants/session-cookie.constants';
 import { AuthService } from './auth.service';
+import { getCookieValue } from './utils/cookie.util';
+import type { AuthenticatedRequest } from './types/authenticated-request.interface';
 
 @ApiTags('Auth')
 @Controller()
@@ -67,6 +71,23 @@ export class AuthController {
     return toAuthUserResponseDto(user);
   }
 
+  @ApiOperation({ summary: 'Log out and revoke the active session' })
+  @ApiCookieAuth('session')
+  @ApiNoContentResponse({ description: 'Session revoked' })
+  @UseGuards(SessionAuthGuard)
+  @HttpCode(204)
+  @Post('logout')
+  async logout(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    const token = getCookieValue(request.headers.cookie, SESSION_COOKIE_NAME);
+    if (token !== undefined) {
+      await this.authService.logout(token);
+    }
+    this.clearSessionCookie(response);
+  }
+
   @ApiOperation({ summary: 'Get current authenticated user' })
   @ApiCookieAuth('session')
   @ApiOkResponse({
@@ -79,6 +100,15 @@ export class AuthController {
     @CurrentUser() user: Parameters<typeof toAuthUserResponseDto>[0],
   ): AuthUserResponseDto {
     return toAuthUserResponseDto(user);
+  }
+
+  private clearSessionCookie(response: Response): void {
+    response.clearCookie(SESSION_COOKIE_NAME, {
+      httpOnly: true,
+      path: '/',
+      sameSite: 'lax',
+      secure: this.configService.getOrThrow('NODE_ENV') === 'production',
+    });
   }
 
   private setSessionCookie(
