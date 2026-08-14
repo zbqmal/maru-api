@@ -6,4 +6,5 @@ export interface EnvironmentVariables {
   NODE_ENV: NodeEnvironment;
   PORT: number;
   DATABASE_URL: string;
+  CORS_ALLOWED_ORIGINS: string[];
 }

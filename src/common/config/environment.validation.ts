@@ -4,6 +4,8 @@ import {
   nodeEnvironments,
 } from './environment.variables';
 
+const defaultDevelopmentOrigins = ['http://localhost:3000'];
+
 function readOptionalString(
   config: Record<string, unknown>,
   key: string,
@@ -76,6 +78,42 @@ function readDatabaseUrl(
   return value;
 }
 
+function readAllowedOrigins(
+  config: Record<string, unknown>,
+  key: string,
+  nodeEnvironment: NodeEnvironment,
+): string[] {
+  const value = readOptionalString(config, key);
+
+  if (value === undefined) {
+    return nodeEnvironment === 'production' ? [] : defaultDevelopmentOrigins;
+  }
+
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+    .map((origin) => {
+      let parsedOrigin: URL;
+
+      try {
+        parsedOrigin = new URL(origin);
+      } catch {
+        throw new Error(
+          `${key} must be a comma-separated list of origins (for example "http://localhost:3000"). Received "${origin}".`,
+        );
+      }
+
+      if (parsedOrigin.origin !== origin.replace(/\/$/, '')) {
+        throw new Error(
+          `${key} entries must be bare origins without a path. Received "${origin}".`,
+        );
+      }
+
+      return parsedOrigin.origin;
+    });
+}
+
 export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
@@ -99,5 +137,10 @@ export function validateEnvironment(
     NODE_ENV: nodeEnvironment,
     PORT: port,
     DATABASE_URL: resolvedDatabaseUrl,
+    CORS_ALLOWED_ORIGINS: readAllowedOrigins(
+      config,
+      'CORS_ALLOWED_ORIGINS',
+      nodeEnvironment,
+    ),
   };
 }
