@@ -7,4 +7,6 @@ export interface EnvironmentVariables {
   PORT: number;
   DATABASE_URL: string;
   CORS_ALLOWED_ORIGINS: string[];
+  RESEND_API_KEY: string;
+  EMAIL_FROM: string;
 }

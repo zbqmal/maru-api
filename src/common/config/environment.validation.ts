@@ -20,6 +20,19 @@ function readOptionalString(
   return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
+function readRequiredString(
+  config: Record<string, unknown>,
+  key: string,
+): string {
+  const value = readOptionalString(config, key);
+
+  if (value === undefined) {
+    throw new Error(`${key} is required.`);
+  }
+
+  return value;
+}
+
 function readNodeEnvironment(
   config: Record<string, unknown>,
   key: string,
@@ -142,5 +155,7 @@ export function validateEnvironment(
       'CORS_ALLOWED_ORIGINS',
       nodeEnvironment,
     ),
+    RESEND_API_KEY: readRequiredString(config, 'RESEND_API_KEY'),
+    EMAIL_FROM: readRequiredString(config, 'EMAIL_FROM'),
   };
 }
