@@ -24,6 +24,17 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService<EnvironmentVariables, true>);
   const port = configService.getOrThrow<number>('PORT');
+  const allowedOrigins = configService.getOrThrow<string[]>(
+    'CORS_ALLOWED_ORIGINS',
+  );
+
+  if (allowedOrigins.length > 0) {
+    app.enableCors({
+      origin: allowedOrigins,
+      credentials: true,
+      methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    });
+  }
 
   const swaggerDocument = createSwaggerDocument(app);
   SwaggerModule.setup('docs', app, swaggerDocument);
