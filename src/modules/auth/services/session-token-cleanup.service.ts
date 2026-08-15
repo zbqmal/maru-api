@@ -13,7 +13,7 @@ export class SessionTokenCleanupService {
 
   constructor(private readonly prismaService: PrismaService) {}
 
-  @Cron(CronExpression.EVERY_5_MINUTES)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleDailyCleanup(): Promise<void> {
     await this.cleanupExpiredAndRevokedAuthArtifacts();
   }
