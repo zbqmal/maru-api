@@ -156,11 +156,11 @@ export function validateEnvironment(
     ),
     RESEND_API_KEY: readRequiredString(config, 'RESEND_API_KEY'),
     EMAIL_FROM: readRequiredString(config, 'EMAIL_FROM'),
-    APP_URL: readAppUrl(config, 'APP_URL', nodeEnvironment),
+    FRONTEND_URL: readFrontendUrl(config, 'FRONTEND_URL', nodeEnvironment),
   };
 }
 
-function readAppUrl(
+function readFrontendUrl(
   config: Record<string, unknown>,
   key: string,
   nodeEnvironment: NodeEnvironment,

@@ -3,11 +3,9 @@ import { EnvironmentVariables } from '../../../../common/config/environment.vari
 import { PrismaService } from '../../../database/prisma.service';
 import { EmailService } from '../../../email/email.service';
 import { PasswordHashingService } from '../password-hashing.service';
-import {
-  InvalidOrExpiredTokenError,
-  PasswordResetService,
-} from '../password-reset.service';
+import { PasswordResetService } from '../password-reset.service';
 import { SessionTokenService } from '../session-token.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('PasswordResetService', () => {
   const now = new Date('2026-01-01T12:00:00.000Z');
@@ -98,9 +96,7 @@ describe('PasswordResetService', () => {
       ).toHaveBeenCalledWith({
         where: { userId: user.id, usedAt: null },
       });
-      expect(
-        prismaServiceMock.passwordResetToken.create,
-      ).toHaveBeenCalledWith({
+      expect(prismaServiceMock.passwordResetToken.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId: user.id,
           tokenHash: 'hashed-token',
@@ -135,17 +131,17 @@ describe('PasswordResetService', () => {
   describe('resetPassword', () => {
     const futureDate = new Date(Date.now() + 60_000 * 60);
 
-    it('throws InvalidOrExpiredTokenError when token is not found', async () => {
+    it('throws BadRequestException when token is not found', async () => {
       (
         prismaServiceMock.passwordResetToken.findUnique as jest.Mock
       ).mockResolvedValue(null);
 
       await expect(
         service.resetPassword('bad-token', 'NewPassword1!'),
-      ).rejects.toBeInstanceOf(InvalidOrExpiredTokenError);
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('throws InvalidOrExpiredTokenError when token is already used', async () => {
+    it('throws BadRequestException when token is already used', async () => {
       (
         prismaServiceMock.passwordResetToken.findUnique as jest.Mock
       ).mockResolvedValue({
@@ -157,10 +153,10 @@ describe('PasswordResetService', () => {
 
       await expect(
         service.resetPassword('raw-token', 'NewPassword1!'),
-      ).rejects.toBeInstanceOf(InvalidOrExpiredTokenError);
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('throws InvalidOrExpiredTokenError when token is expired', async () => {
+    it('throws BadRequestException when token is expired', async () => {
       (
         prismaServiceMock.passwordResetToken.findUnique as jest.Mock
       ).mockResolvedValue({
@@ -172,7 +168,7 @@ describe('PasswordResetService', () => {
 
       await expect(
         service.resetPassword('raw-token', 'NewPassword1!'),
-      ).rejects.toBeInstanceOf(InvalidOrExpiredTokenError);
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('marks token used, updates password, and revokes all sessions on success', async () => {
@@ -202,9 +198,7 @@ describe('PasswordResetService', () => {
         'NewPassword1!',
       );
       expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
-      expect(
-        prismaServiceMock.passwordResetToken.update,
-      ).toHaveBeenCalledWith(
+      expect(prismaServiceMock.passwordResetToken.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tokenHash: 'hashed-token' },
           data: expect.objectContaining({ usedAt: expect.any(Date) }),

@@ -34,10 +34,7 @@ import { SESSION_COOKIE_NAME } from './constants/session-cookie.constants';
 import { AuthService } from './auth.service';
 import { getCookieValue } from './utils/cookie.util';
 import type { AuthenticatedRequest } from './types/authenticated-request.interface';
-import {
-  InvalidOrExpiredTokenError,
-  PasswordResetService,
-} from './services/password-reset.service';
+import { PasswordResetService } from './services/password-reset.service';
 
 @ApiTags('Auth')
 @Controller()
@@ -123,17 +120,10 @@ export class AuthController {
   @HttpCode(204)
   @Post('reset-password')
   async resetPassword(@Body() input: ResetPasswordDto): Promise<void> {
-    try {
-      await this.passwordResetService.resetPassword(
-        input.token,
-        input.newPassword,
-      );
-    } catch (error) {
-      if (error instanceof InvalidOrExpiredTokenError) {
-        throw new BadRequestException(error.message);
-      }
-      throw error;
-    }
+    await this.passwordResetService.resetPassword(
+      input.token,
+      input.newPassword,
+    );
   }
 
   private clearSessionCookie(response: Response): void {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from '../../../common/config/environment.variables';
 import { PrismaService } from '../../database/prisma.service';
@@ -42,8 +42,8 @@ export class PasswordResetService {
       },
     });
 
-    const appUrl = this.configService.getOrThrow('APP_URL');
-    const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+    const frontendUrl = this.configService.getOrThrow('FRONTEND_URL');
+    const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     await this.emailService.send({
       to: user.email,
@@ -60,12 +60,14 @@ export class PasswordResetService {
       where: { tokenHash },
     });
 
-    if (resetToken === null || resetToken.usedAt !== null) {
-      throw new InvalidOrExpiredTokenError();
-    }
-
-    if (resetToken.expiresAt <= new Date()) {
-      throw new InvalidOrExpiredTokenError();
+    if (
+      resetToken === null ||
+      resetToken.usedAt !== null ||
+      resetToken.expiresAt <= new Date()
+    ) {
+      throw new BadRequestException(
+        'Password reset token is invalid or has expired.',
+      );
     }
 
     const newPasswordHash =
@@ -88,13 +90,6 @@ export class PasswordResetService {
         data: { revokedAt: new Date() },
       }),
     ]);
-  }
-}
-
-export class InvalidOrExpiredTokenError extends Error {
-  constructor() {
-    super('Password reset token is invalid or has expired.');
-    this.name = 'InvalidOrExpiredTokenError';
   }
 }
 

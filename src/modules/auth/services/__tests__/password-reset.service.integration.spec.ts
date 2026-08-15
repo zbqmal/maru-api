@@ -4,15 +4,13 @@ import { validateEnvironment } from '../../../../common/config/environment.valid
 import { AuthModule } from '../../auth.module';
 import { PrismaService } from '../../../database/prisma.service';
 import { SessionTokenService } from '../session-token.service';
-import {
-  InvalidOrExpiredTokenError,
-  PasswordResetService,
-} from '../password-reset.service';
+import { PasswordResetService } from '../password-reset.service';
 import { EmailService } from '../../../email/email.service';
+import { BadRequestException } from '@nestjs/common';
 
 process.env.NODE_ENV = 'test';
 process.env.TEST_DATABASE_URL ??= process.env.DATABASE_URL;
-process.env.APP_URL ??= 'http://localhost:3000';
+process.env.FRONTEND_URL ??= 'http://localhost:3000';
 
 describe('PasswordResetService (integration)', () => {
   let prismaService: PrismaService;
@@ -158,7 +156,7 @@ describe('PasswordResetService (integration)', () => {
 
     await expect(
       passwordResetService.resetPassword(rawToken, 'SecondReset1!'),
-    ).rejects.toBeInstanceOf(InvalidOrExpiredTokenError);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rejects an expired token', async () => {
@@ -177,12 +175,12 @@ describe('PasswordResetService (integration)', () => {
 
     await expect(
       passwordResetService.resetPassword(rawToken, 'NewPassword1!'),
-    ).rejects.toBeInstanceOf(InvalidOrExpiredTokenError);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('rejects an unknown token', async () => {
     await expect(
       passwordResetService.resetPassword('totally-fake-token', 'NewPassword1!'),
-    ).rejects.toBeInstanceOf(InvalidOrExpiredTokenError);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
