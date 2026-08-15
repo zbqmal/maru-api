@@ -9,6 +9,7 @@ import { BadRequestException } from '@nestjs/common';
 
 describe('PasswordResetService', () => {
   const now = new Date('2026-01-01T12:00:00.000Z');
+  type MockFunction = jest.MockedFunction<(...args: unknown[]) => unknown>;
 
   const user = {
     id: 'user-1',
@@ -36,7 +37,17 @@ describe('PasswordResetService', () => {
       updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
-  } as unknown as PrismaService;
+  } as {
+    user: { findUnique: MockFunction; update: MockFunction };
+    passwordResetToken: {
+      findUnique: MockFunction;
+      create: MockFunction;
+      deleteMany: MockFunction;
+      update: MockFunction;
+    };
+    session: { updateMany: MockFunction };
+    $transaction: MockFunction;
+  };
 
   const sessionTokenServiceMock = {
     generateToken: jest.fn().mockReturnValue('raw-token'),
@@ -60,7 +71,7 @@ describe('PasswordResetService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new PasswordResetService(
-      prismaServiceMock,
+      prismaServiceMock as unknown as PrismaService,
       sessionTokenServiceMock,
       passwordHashingServiceMock,
       emailServiceMock,
@@ -75,9 +86,11 @@ describe('PasswordResetService', () => {
       await service.requestPasswordReset('unknown@example.com');
 
       expect(
-        prismaServiceMock.passwordResetToken.create,
-      ).not.toHaveBeenCalled();
-      expect(emailServiceMock.send).not.toHaveBeenCalled();
+        prismaServiceMock.passwordResetToken.create.mock.calls,
+      ).toHaveLength(0);
+      expect(
+        (emailServiceMock.send as unknown as MockFunction).mock.calls,
+      ).toHaveLength(0);
     });
 
     it('invalidates existing tokens and creates a new one for a known user', async () => {
@@ -92,22 +105,25 @@ describe('PasswordResetService', () => {
       await service.requestPasswordReset(user.email);
 
       expect(
-        prismaServiceMock.passwordResetToken.deleteMany,
-      ).toHaveBeenCalledWith({
-        where: { userId: user.id, usedAt: null },
+        prismaServiceMock.passwordResetToken.deleteMany.mock.calls,
+      ).toEqual([
+        [
+          {
+            where: { userId: user.id, usedAt: null },
+          },
+        ],
+      ]);
+      expect(
+        prismaServiceMock.passwordResetToken.create.mock.calls[0]?.[0],
+      ).toMatchObject({
+        data: { userId: user.id, tokenHash: 'hashed-token' },
       });
-      expect(prismaServiceMock.passwordResetToken.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          userId: user.id,
-          tokenHash: 'hashed-token',
-        }),
+      expect(
+        (emailServiceMock.send as unknown as MockFunction).mock.calls[0]?.[0],
+      ).toMatchObject({
+        to: user.email,
+        subject: 'Reset your Maru password',
       });
-      expect(emailServiceMock.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: user.email,
-          subject: 'Reset your Maru password',
-        }),
-      );
     });
 
     it('includes the reset URL with the raw token in the email', async () => {
@@ -121,8 +137,8 @@ describe('PasswordResetService', () => {
 
       await service.requestPasswordReset(user.email);
 
-      const sentEmail = (emailServiceMock.send as jest.Mock).mock
-        .calls[0][0] as { html: string; text: string };
+      const sentEmail = (emailServiceMock.send as unknown as MockFunction).mock
+        .calls[0]?.[0] as { html: string; text: string };
       expect(sentEmail.html).toContain('raw-token');
       expect(sentEmail.text).toContain('raw-token');
     });
@@ -194,28 +210,27 @@ describe('PasswordResetService', () => {
 
       await service.resetPassword('raw-token', 'NewPassword1!');
 
-      expect(passwordHashingServiceMock.hashPassword).toHaveBeenCalledWith(
-        'NewPassword1!',
-      );
-      expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
-      expect(prismaServiceMock.passwordResetToken.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tokenHash: 'hashed-token' },
-          data: expect.objectContaining({ usedAt: expect.any(Date) }),
-        }),
-      );
-      expect(prismaServiceMock.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: user.id },
-          data: { passwordHash: 'new-hash' },
-        }),
-      );
-      expect(prismaServiceMock.session.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { userId: user.id, revokedAt: null },
-          data: expect.objectContaining({ revokedAt: expect.any(Date) }),
-        }),
-      );
+      expect(
+        (passwordHashingServiceMock.hashPassword as unknown as MockFunction)
+          .mock.calls,
+      ).toEqual([['NewPassword1!']]);
+      expect(prismaServiceMock.$transaction.mock.calls).toHaveLength(1);
+      expect(
+        prismaServiceMock.passwordResetToken.update.mock.calls[0]?.[0],
+      ).toMatchObject({
+        where: { tokenHash: 'hashed-token' },
+        data: { usedAt: expect.any(Date) as unknown },
+      });
+      expect(prismaServiceMock.user.update.mock.calls[0]?.[0]).toMatchObject({
+        where: { id: user.id },
+        data: { passwordHash: 'new-hash' },
+      });
+      expect(
+        prismaServiceMock.session.updateMany.mock.calls[0]?.[0],
+      ).toMatchObject({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: expect.any(Date) as unknown },
+      });
     });
   });
 });
