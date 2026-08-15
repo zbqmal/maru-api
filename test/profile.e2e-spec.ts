@@ -35,6 +35,7 @@ describe('ProfileController (e2e)', () => {
   });
 
   beforeEach(async () => {
+    await prismaService.group.deleteMany();
     await prismaService.session.deleteMany();
     await prismaService.passwordResetToken.deleteMany();
     await prismaService.user.deleteMany();

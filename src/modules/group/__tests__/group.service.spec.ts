@@ -4,8 +4,6 @@ import { GroupService } from '../group.service';
 describe('GroupService', () => {
   const prismaService = {
     $transaction: jest.fn(),
-  } as unknown as {
-    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
@@ -41,7 +39,9 @@ describe('GroupService', () => {
 
     prismaService.$transaction.mockImplementation(
       async (
-        callback: (transactionClient: Prisma.TransactionClient) => Promise<unknown>,
+        callback: (
+          transactionClient: Prisma.TransactionClient,
+        ) => Promise<unknown>,
       ) => callback(tx as unknown as Prisma.TransactionClient),
     );
 

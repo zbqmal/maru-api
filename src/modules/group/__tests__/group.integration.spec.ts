@@ -40,11 +40,14 @@ describe('GroupModule (integration)', () => {
   });
 
   beforeEach(async () => {
-    await prismaService.groupMember.deleteMany();
     await prismaService.group.deleteMany();
     await prismaService.session.deleteMany();
     await prismaService.passwordResetToken.deleteMany();
     await prismaService.user.deleteMany();
+  });
+
+  afterAll(async () => {
+    await prismaService.$disconnect();
   });
 
   it('creates a group with exactly one leader membership', async () => {
@@ -68,12 +71,12 @@ describe('GroupModule (integration)', () => {
       role: GroupMemberRole.LEADER,
     });
 
-    await expect(groupMembershipService.findLeader(group.id)).resolves.toMatchObject(
-      {
-        userId: leader.id,
-        role: GroupMemberRole.LEADER,
-      },
-    );
+    await expect(
+      groupMembershipService.findLeader(group.id),
+    ).resolves.toMatchObject({
+      userId: leader.id,
+      role: GroupMemberRole.LEADER,
+    });
   });
 
   it('rejects creating a duplicate membership for the same user and group', async () => {

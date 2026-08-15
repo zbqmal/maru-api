@@ -39,6 +39,7 @@ describe('SessionService (integration)', () => {
   });
 
   beforeEach(async () => {
+    await prismaService.group.deleteMany();
     await prismaService.session.deleteMany();
     await prismaService.user.deleteMany();
   });
