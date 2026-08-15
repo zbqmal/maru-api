@@ -131,7 +131,6 @@ export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
   const nodeEnvironment = readNodeEnvironment(config, 'NODE_ENV');
-  const port = readPort(config, 'PORT');
   const databaseUrl = readDatabaseUrl(config, 'DATABASE_URL');
   const testDatabaseUrl = readDatabaseUrl(config, 'TEST_DATABASE_URL');
 
@@ -148,7 +147,7 @@ export function validateEnvironment(
 
   return {
     NODE_ENV: nodeEnvironment,
-    PORT: port,
+    PORT: readPort(config, 'PORT'),
     DATABASE_URL: resolvedDatabaseUrl,
     CORS_ALLOWED_ORIGINS: readAllowedOrigins(
       config,

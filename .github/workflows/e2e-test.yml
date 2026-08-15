@@ -1,0 +1,59 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Install, Migrate, E2E Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: maru
+          POSTGRES_PASSWORD: maru
+          POSTGRES_DB: maru_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 3001
+      RESEND_API_KEY: e2e-test-key
+      EMAIL_FROM: e2e-test@example.com
+      DATABASE_URL: postgresql://maru:maru@localhost:5432/maru_test
+      TEST_DATABASE_URL: postgresql://maru:maru@localhost:5432/maru_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Generate Prisma client
+        run: yarn prisma:generate
+
+      - name: Apply database migrations
+        run: yarn prisma:migrate:deploy
+
+      - name: E2E tests
+        run: yarn test:e2e
