@@ -87,6 +87,26 @@
         ]
       }
     },
+    "/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Session revoked"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Log out and revoke the active session",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/me": {
       "get": {
         "operationId": "AuthController_getCurrentUser",
@@ -161,6 +181,107 @@
         "summary": "Reset password using a valid reset token",
         "tags": [
           "Auth"
+        ]
+      }
+    },
+    "/profile": {
+      "get": {
+        "operationId": "ProfileController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get own profile",
+        "tags": [
+          "Profile"
+        ]
+      }
+    },
+    "/profile/name": {
+      "patch": {
+        "operationId": "ProfileController_updateName",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update display name",
+        "tags": [
+          "Profile"
+        ]
+      }
+    },
+    "/profile/birthday": {
+      "patch": {
+        "operationId": "ProfileController_updateBirthday",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBirthdayDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update birthday",
+        "tags": [
+          "Profile"
         ]
       }
     }
@@ -323,6 +444,71 @@
         "required": [
           "token",
           "newPassword"
+        ]
+      },
+      "ProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "birthday": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "profileImageKey": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "birthday",
+          "profileImageKey",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateNameDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Maru User",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateBirthdayDto": {
+        "type": "object",
+        "properties": {
+          "birthday": {
+            "type": "string",
+            "example": "1990-05-20",
+            "nullable": true,
+            "format": "date"
+          }
+        },
+        "required": [
+          "birthday"
         ]
       }
     }

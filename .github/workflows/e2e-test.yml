@@ -56,4 +56,4 @@ jobs:
         run: yarn prisma:migrate:deploy
 
       - name: E2E tests
-        run: yarn test:e2e
+        run: yarn test:e2e --runInBand
