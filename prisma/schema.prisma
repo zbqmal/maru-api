@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum GroupMemberRole {
+  LEADER
+  MEMBER
+}
+
 model User {
   id              String    @id @default(cuid())
   email           String    @unique @db.VarChar(320)
@@ -16,10 +21,38 @@ model User {
   profileImageKey String?   @map("profile_image_key") @db.VarChar(255)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
-  sessions             Session[]
-  passwordResetTokens  PasswordResetToken[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  groupMemberships    GroupMember[]
 
   @@map("users")
+}
+
+model Group {
+  id          String        @id @default(cuid())
+  name        String        @db.VarChar(100)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  memberships GroupMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id        String          @id @default(cuid())
+  groupId   String          @map("group_id")
+  userId    String          @map("user_id")
+  role      GroupMemberRole @default(MEMBER)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  group     Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@index([groupId, role])
+  @@index([groupId, createdAt])
+  @@map("group_members")
 }
 
 model Session {
