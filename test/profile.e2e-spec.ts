@@ -56,7 +56,19 @@ describe('ProfileController (e2e)', () => {
       .send({ email, password, name });
 
     const userId = (registerRes.body as { id: string }).id;
-    const setCookie = registerRes.headers['set-cookie'] as string[];
+    const rawSetCookie = (registerRes.headers as Record<string, unknown>)[
+      'set-cookie'
+    ];
+    const setCookie = Array.isArray(rawSetCookie)
+      ? rawSetCookie.filter(
+          (cookie): cookie is string => typeof cookie === 'string',
+        )
+      : typeof rawSetCookie === 'string'
+        ? [rawSetCookie]
+        : [];
+    if (setCookie.length === 0) {
+      throw new Error('Register response did not include a session cookie.');
+    }
     const sessionCookie = setCookie[0].split(';')[0];
     return { sessionCookie, userId };
   }
@@ -145,7 +157,10 @@ describe('ProfileController (e2e)', () => {
       .set('Cookie', cookieA)
       .send({ name: 'User A Renamed' });
     expect(nameRes.status).toBe(200);
-    expect(nameRes.body).toMatchObject({ name: 'User A Renamed', email: 'user-a@example.com' });
+    expect(nameRes.body).toMatchObject({
+      name: 'User A Renamed',
+      email: 'user-a@example.com',
+    });
 
     const userB = await prismaService.user.findUnique({
       where: { email: 'user-b@example.com' },

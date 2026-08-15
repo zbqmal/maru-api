@@ -9,6 +9,7 @@ import { PasswordResetService } from './services/password-reset.service';
 import { SessionService } from './services/session.service';
 import { SessionTokenService } from './services/session-token.service';
 import { PasswordHashingService } from './services/password-hashing.service';
+import { SessionTokenCleanupService } from './services/session-token-cleanup.service';
 
 @Module({
   imports: [DatabaseModule, EmailModule, UserModule],
@@ -20,6 +21,7 @@ import { PasswordHashingService } from './services/password-hashing.service';
     SessionAuthGuard,
     SessionTokenService,
     SessionService,
+    SessionTokenCleanupService,
   ],
   exports: [
     AuthService,
@@ -27,6 +29,7 @@ import { PasswordHashingService } from './services/password-hashing.service';
     PasswordResetService,
     SessionTokenService,
     SessionService,
+    SessionTokenCleanupService,
   ],
 })
 export class AuthModule {}
