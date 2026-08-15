@@ -9,13 +9,16 @@ import { PrismaService } from './../src/modules/database/prisma.service';
 import { PasswordHashingService } from './../src/modules/auth/services/password-hashing.service';
 import { EmailService } from './../src/modules/email/email.service';
 import { SessionTokenService } from './../src/modules/auth/services/session-token.service';
+import type { SendEmailOptions } from './../src/modules/email/types/email.types';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   let passwordHashingService: PasswordHashingService;
   let sessionTokenService: SessionTokenService;
-  let emailSendSpy: jest.SpyInstance;
+  let emailSendSpy: jest.SpiedFunction<
+    (options: SendEmailOptions) => Promise<void>
+  >;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -211,7 +214,7 @@ describe('AuthController (e2e)', () => {
       password: 'Str0ngPassword!',
       name: 'Logout User',
     });
-    const sessionCookie = registerResponse.headers['set-cookie'][0] as string;
+    const sessionCookie = registerResponse.headers['set-cookie'][0];
 
     const logoutResponse = await request(httpServer)
       .post('/logout')
@@ -220,8 +223,7 @@ describe('AuthController (e2e)', () => {
     expect(logoutResponse.status).toBe(204);
 
     const setCookieHeader = logoutResponse.headers['set-cookie'] as
-      | string[]
-      | undefined;
+      string[] | undefined;
     const clearedCookie = setCookieHeader?.find((c) =>
       c.startsWith('maru_session='),
     );
@@ -248,7 +250,7 @@ describe('AuthController (e2e)', () => {
       password: 'Str0ngPassword!',
       name: 'Revoked Session User',
     });
-    const sessionCookie = registerResponse.headers['set-cookie'][0] as string;
+    const sessionCookie = registerResponse.headers['set-cookie'][0];
 
     await request(httpServer).post('/logout').set('Cookie', sessionCookie);
 
@@ -279,7 +281,7 @@ describe('AuthController (e2e)', () => {
       data: { expiresAt: new Date(Date.now() - 1000) },
     });
 
-    const sessionCookie = registerResponse.headers['set-cookie'][0] as string;
+    const sessionCookie = registerResponse.headers['set-cookie'][0];
     const meResponse = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
@@ -351,8 +353,7 @@ describe('AuthController (e2e)', () => {
       password: 'OldPassword1!',
       name: 'Full Reset User',
     });
-    const sessionCookieBefore =
-      registerResponse.headers['set-cookie'][0] as string;
+    const sessionCookieBefore = registerResponse.headers['set-cookie'][0];
     const userId = (registerResponse.body as Record<string, unknown>)[
       'id'
     ] as string;
@@ -469,4 +470,33 @@ describe('AuthController (e2e)', () => {
 
     expect(response.status).toBe(400);
   });
+
+  it.each(['alllowercase1!', 'ALLUPPERCASE1!', 'NoNumber!', 'NoSpecial1'])(
+    'POST /reset-password rejects a password missing a required character type',
+    async (newPassword) => {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+      await prismaService.user.create({
+        data: {
+          email: 'invalid-reset-password@example.com',
+          passwordHash: 'existing-password-hash',
+          name: 'Invalid Reset Password User',
+        },
+      });
+      await request(httpServer)
+        .post('/forgot-password')
+        .send({ email: 'invalid-reset-password@example.com' });
+
+      const sentEmail = emailSendSpy.mock.calls[0][0] as { html: string };
+      const match = /token=([^"<\s]+)/.exec(sentEmail.html);
+      expect(match).not.toBeNull();
+      const rawToken = match![1];
+
+      const response = await request(httpServer)
+        .post('/reset-password')
+        .send({ token: rawToken, newPassword });
+
+      expect(response.status).toBe(400);
+    },
+  );
 });

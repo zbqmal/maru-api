@@ -42,7 +42,7 @@ export class PasswordResetService {
       },
     });
 
-    const frontendUrl = this.configService.getOrThrow('FRONTEND_URL');
+    const frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
     const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     await this.emailService.send({
