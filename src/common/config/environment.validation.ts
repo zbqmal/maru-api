@@ -20,6 +20,19 @@ function readOptionalString(
   return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
+function readRequiredString(
+  config: Record<string, unknown>,
+  key: string,
+): string {
+  const value = readOptionalString(config, key);
+
+  if (value === undefined) {
+    throw new Error(`${key} is required.`);
+  }
+
+  return value;
+}
+
 function readNodeEnvironment(
   config: Record<string, unknown>,
   key: string,
@@ -118,7 +131,6 @@ export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
   const nodeEnvironment = readNodeEnvironment(config, 'NODE_ENV');
-  const port = readPort(config, 'PORT');
   const databaseUrl = readDatabaseUrl(config, 'DATABASE_URL');
   const testDatabaseUrl = readDatabaseUrl(config, 'TEST_DATABASE_URL');
 
@@ -135,12 +147,14 @@ export function validateEnvironment(
 
   return {
     NODE_ENV: nodeEnvironment,
-    PORT: port,
+    PORT: readPort(config, 'PORT'),
     DATABASE_URL: resolvedDatabaseUrl,
     CORS_ALLOWED_ORIGINS: readAllowedOrigins(
       config,
       'CORS_ALLOWED_ORIGINS',
       nodeEnvironment,
     ),
+    RESEND_API_KEY: readRequiredString(config, 'RESEND_API_KEY'),
+    EMAIL_FROM: readRequiredString(config, 'EMAIL_FROM'),
   };
 }

@@ -7,10 +7,14 @@ describe('createSwaggerDocument', () => {
   let app: INestApplication;
   const originalNodeEnv = process.env.NODE_ENV;
   const originalDatabaseUrl = process.env.DATABASE_URL;
+  const originalResendApiKey = process.env.RESEND_API_KEY;
+  const originalEmailFrom = process.env.EMAIL_FROM;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'development';
     process.env.DATABASE_URL = 'postgresql://localhost:5432/maru_dev';
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.EMAIL_FROM = 'noreply@example.com';
     const require = createRequire(__filename);
     const { AppModule } =
       require('../../../app.module') as typeof import('../../../app.module');
@@ -29,6 +33,8 @@ describe('createSwaggerDocument', () => {
     }
     process.env.NODE_ENV = originalNodeEnv;
     process.env.DATABASE_URL = originalDatabaseUrl;
+    process.env.RESEND_API_KEY = originalResendApiKey;
+    process.env.EMAIL_FROM = originalEmailFrom;
   });
 
   it('includes the current API metadata and session cookie auth', () => {
