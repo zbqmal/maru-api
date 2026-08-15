@@ -1,4 +1,4 @@
-name: Build & Test
+name: Integration Tests
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
-    name: Install, Lint, Test, Build
+  integration-test:
+    name: Install, Migrate, Integration Test
     runs-on: ubuntu-latest
 
     services:
@@ -65,11 +65,5 @@ jobs:
       - name: Apply database migrations
         run: yarn prisma:migrate:deploy
 
-      - name: Lint
-        run: yarn lint
-
-      - name: Unit tests
-        run: yarn test --testPathIgnorePatterns=integration.spec.ts
-
-      - name: Build
-        run: yarn build
+      - name: Integration tests
+        run: yarn test --runInBand --testPathPatterns=integration.spec.ts
