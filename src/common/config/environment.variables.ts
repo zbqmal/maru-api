@@ -9,4 +9,5 @@ export interface EnvironmentVariables {
   CORS_ALLOWED_ORIGINS: string[];
   RESEND_API_KEY: string;
   EMAIL_FROM: string;
+  APP_URL: string;
 }

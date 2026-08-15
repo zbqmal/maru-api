@@ -156,5 +156,29 @@ export function validateEnvironment(
     ),
     RESEND_API_KEY: readRequiredString(config, 'RESEND_API_KEY'),
     EMAIL_FROM: readRequiredString(config, 'EMAIL_FROM'),
+    APP_URL: readAppUrl(config, 'APP_URL', nodeEnvironment),
   };
+}
+
+function readAppUrl(
+  config: Record<string, unknown>,
+  key: string,
+  nodeEnvironment: NodeEnvironment,
+): string {
+  const value = readOptionalString(config, key);
+
+  if (value === undefined) {
+    if (nodeEnvironment === 'production') {
+      throw new Error(`${key} is required in production.`);
+    }
+    return 'http://localhost:3000';
+  }
+
+  try {
+    new URL(value);
+  } catch {
+    throw new Error(`${key} must be a valid URL.`);
+  }
+
+  return value;
 }

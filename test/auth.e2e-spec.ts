@@ -7,16 +7,23 @@ import { AllExceptionsFilter } from './../src/common/filters/all-exceptions.filt
 import { LoggingInterceptor } from './../src/common/interceptors/logging.interceptor';
 import { PrismaService } from './../src/modules/database/prisma.service';
 import { PasswordHashingService } from './../src/modules/auth/services/password-hashing.service';
+import { EmailService } from './../src/modules/email/email.service';
+import { SessionTokenService } from './../src/modules/auth/services/session-token.service';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   let passwordHashingService: PasswordHashingService;
+  let sessionTokenService: SessionTokenService;
+  let emailSendSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(EmailService)
+      .useValue({ send: jest.fn().mockResolvedValue(undefined) })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -32,11 +39,17 @@ describe('AuthController (e2e)', () => {
 
     prismaService = app.get(PrismaService);
     passwordHashingService = app.get(PasswordHashingService);
+    sessionTokenService = app.get(SessionTokenService);
+
+    const emailService = app.get<EmailService>(EmailService);
+    emailSendSpy = jest.spyOn(emailService, 'send');
   });
 
   beforeEach(async () => {
     await prismaService.session.deleteMany();
+    await prismaService.passwordResetToken.deleteMany();
     await prismaService.user.deleteMany();
+    jest.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -276,5 +289,184 @@ describe('AuthController (e2e)', () => {
 
     expect(meResponse.status).toBe(401);
     expect(body['message']).toBe('Authentication required.');
+  });
+
+  // ─── Forgot / Reset Password ───────────────────────────────────────────────
+
+  it('POST /forgot-password responds 204 even for an unknown email (no enumeration)', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const response = await request(httpServer)
+      .post('/forgot-password')
+      .send({ email: 'nobody@example.com' });
+
+    expect(response.status).toBe(204);
+    expect(emailSendSpy).not.toHaveBeenCalled();
+  });
+
+  it('POST /forgot-password sends a reset email and stores a token for a real user', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const user = await prismaService.user.create({
+      data: {
+        email: 'reset-user@example.com',
+        passwordHash:
+          await passwordHashingService.hashPassword('OldPassword1!'),
+        name: 'Reset User',
+      },
+    });
+
+    const response = await request(httpServer)
+      .post('/forgot-password')
+      .send({ email: user.email });
+
+    expect(response.status).toBe(204);
+    expect(emailSendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ to: user.email }),
+    );
+
+    const token = await prismaService.passwordResetToken.findFirst({
+      where: { userId: user.id },
+    });
+    expect(token).not.toBeNull();
+    expect(token?.usedAt).toBeNull();
+  });
+
+  it('POST /forgot-password rejects an invalid payload', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const response = await request(httpServer)
+      .post('/forgot-password')
+      .send({ email: 'not-an-email' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /reset-password resets the password and revokes active sessions', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    // Register user and get a session
+    const registerResponse = await request(httpServer).post('/register').send({
+      email: 'full-reset-user@example.com',
+      password: 'OldPassword1!',
+      name: 'Full Reset User',
+    });
+    const sessionCookieBefore =
+      registerResponse.headers['set-cookie'][0] as string;
+    const userId = (registerResponse.body as Record<string, unknown>)[
+      'id'
+    ] as string;
+
+    // Request reset
+    await request(httpServer)
+      .post('/forgot-password')
+      .send({ email: 'full-reset-user@example.com' });
+
+    const sentEmail = emailSendSpy.mock.calls[0][0] as { html: string };
+    const match = /token=([^"<\s]+)/.exec(sentEmail.html);
+    expect(match).not.toBeNull();
+    const rawToken = match![1];
+
+    // Reset password
+    const resetResponse = await request(httpServer)
+      .post('/reset-password')
+      .send({ token: rawToken, newPassword: 'NewPassword1!' });
+
+    expect(resetResponse.status).toBe(204);
+
+    // Old session should no longer work
+    const meResponse = await request(httpServer)
+      .get('/me')
+      .set('Cookie', sessionCookieBefore);
+    expect(meResponse.status).toBe(401);
+
+    // New password should work for login
+    const loginResponse = await request(httpServer).post('/login').send({
+      email: 'full-reset-user@example.com',
+      password: 'NewPassword1!',
+    });
+    expect(loginResponse.status).toBe(200);
+    expect((loginResponse.body as Record<string, unknown>)['id']).toBe(userId);
+  });
+
+  it('POST /reset-password returns 400 for an expired token', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const user = await prismaService.user.create({
+      data: {
+        email: 'expired-token-user@example.com',
+        passwordHash:
+          await passwordHashingService.hashPassword('OldPassword1!'),
+        name: 'Expired Token User',
+      },
+    });
+
+    const rawToken = sessionTokenService.generateToken();
+    const tokenHash = sessionTokenService.hashToken(rawToken);
+
+    await prismaService.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() - 1),
+      },
+    });
+
+    const response = await request(httpServer)
+      .post('/reset-password')
+      .send({ token: rawToken, newPassword: 'NewPassword1!' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /reset-password returns 400 when the token is reused', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    await prismaService.user.create({
+      data: {
+        email: 'reuse-token-user@example.com',
+        passwordHash:
+          await passwordHashingService.hashPassword('OldPassword1!'),
+        name: 'Reuse Token User',
+      },
+    });
+
+    await request(httpServer)
+      .post('/forgot-password')
+      .send({ email: 'reuse-token-user@example.com' });
+
+    const sentEmail = emailSendSpy.mock.calls[0][0] as { html: string };
+    const match = /token=([^"<\s]+)/.exec(sentEmail.html);
+    const rawToken = match![1];
+
+    await request(httpServer)
+      .post('/reset-password')
+      .send({ token: rawToken, newPassword: 'FirstNew1!' });
+
+    const secondResponse = await request(httpServer)
+      .post('/reset-password')
+      .send({ token: rawToken, newPassword: 'SecondNew1!' });
+
+    expect(secondResponse.status).toBe(400);
+  });
+
+  it('POST /reset-password returns 400 for a bogus token', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const response = await request(httpServer)
+      .post('/reset-password')
+      .send({ token: 'completely-fake', newPassword: 'NewPassword1!' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /reset-password rejects a payload missing required fields', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const response = await request(httpServer)
+      .post('/reset-password')
+      .send({ token: 'some-token' });
+
+    expect(response.status).toBe(400);
   });
 });
