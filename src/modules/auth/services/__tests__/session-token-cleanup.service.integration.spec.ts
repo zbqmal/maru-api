@@ -117,10 +117,11 @@ describe('SessionTokenCleanupService (integration)', () => {
       sessionTokenService.hashToken('active-session-token'),
     );
 
-    const remainingResetTokens = await prismaService.passwordResetToken.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'asc' },
-    });
+    const remainingResetTokens =
+      await prismaService.passwordResetToken.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'asc' },
+      });
     expect(remainingResetTokens).toHaveLength(1);
     expect(remainingResetTokens[0].tokenHash).toBe(
       sessionTokenService.hashToken('active-reset-token'),

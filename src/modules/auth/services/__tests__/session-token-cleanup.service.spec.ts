@@ -59,10 +59,7 @@ describe('SessionTokenCleanupService', () => {
       prismaServiceMock.passwordResetToken.deleteMany.mock.calls[0]?.[0],
     ).toEqual({
       where: {
-        OR: [
-          { expiresAt: { lte: referenceTime } },
-          { usedAt: { not: null } },
-        ],
+        OR: [{ expiresAt: { lte: referenceTime } }, { usedAt: { not: null } }],
       },
     });
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
