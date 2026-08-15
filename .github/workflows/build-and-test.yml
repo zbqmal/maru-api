@@ -32,6 +32,7 @@ jobs:
       NODE_ENV: test
       PORT: 3001
       RESEND_API_KEY: e2e-test-key
+      EMAIL_FROM: e2e-test@example.com
 
     steps:
       - uses: actions/checkout@v4
