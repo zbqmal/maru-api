@@ -9,9 +9,7 @@ export class UpdateBirthdayDto {
     type: String,
     format: 'date',
   })
-  @Transform(({ value }: { value: unknown }) =>
-    value === '' ? null : value,
-  )
+  @Transform(({ value }: { value: unknown }) => (value === '' ? null : value))
   @IsOptional()
   @IsDateString()
   birthday!: string | null;

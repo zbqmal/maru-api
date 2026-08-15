@@ -15,7 +15,10 @@ import {
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { ProfileResponseDto, toProfileResponseDto } from './dto/profile-response.dto';
+import {
+  ProfileResponseDto,
+  toProfileResponseDto,
+} from './dto/profile-response.dto';
 import { UpdateBirthdayDto } from './dto/update-birthday.dto';
 import { UpdateNameDto } from './dto/update-name.dto';
 import { ProfileService } from './profile.service';
@@ -28,7 +31,10 @@ export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @ApiOperation({ summary: 'Get own profile' })
-  @ApiOkResponse({ description: 'Current user profile', type: ProfileResponseDto })
+  @ApiOkResponse({
+    description: 'Current user profile',
+    type: ProfileResponseDto,
+  })
   @Get()
   getProfile(@CurrentUser() user: User): ProfileResponseDto {
     return toProfileResponseDto(this.profileService.getProfile(user));
@@ -54,7 +60,10 @@ export class ProfileController {
     @CurrentUser() user: User,
     @Body() dto: UpdateBirthdayDto,
   ): Promise<ProfileResponseDto> {
-    const updated = await this.profileService.updateBirthday(user, dto.birthday);
+    const updated = await this.profileService.updateBirthday(
+      user,
+      dto.birthday,
+    );
     return toProfileResponseDto(updated);
   }
 }

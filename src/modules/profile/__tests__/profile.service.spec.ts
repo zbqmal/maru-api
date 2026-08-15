@@ -39,9 +39,10 @@ describe('ProfileService', () => {
 
       const result = await profileService.updateName(user, 'New Name');
 
-      expect(userService.updateProfile).toHaveBeenCalledWith(user.id, {
-        name: 'New Name',
-      });
+      expect(userService.updateProfile.mock.calls[0]).toEqual([
+        user.id,
+        { name: 'New Name' },
+      ]);
       expect(result.name).toBe('New Name');
     });
   });
@@ -54,9 +55,10 @@ describe('ProfileService', () => {
 
       const result = await profileService.updateBirthday(user, '1990-05-20');
 
-      expect(userService.updateProfile).toHaveBeenCalledWith(user.id, {
-        birthday: new Date('1990-05-20'),
-      });
+      expect(userService.updateProfile.mock.calls[0]).toEqual([
+        user.id,
+        { birthday: new Date('1990-05-20') },
+      ]);
       expect(result.birthday).toEqual(new Date('1990-05-20'));
     });
 
@@ -67,9 +69,10 @@ describe('ProfileService', () => {
 
       const result = await profileService.updateBirthday(user, null);
 
-      expect(userService.updateProfile).toHaveBeenCalledWith(user.id, {
-        birthday: null,
-      });
+      expect(userService.updateProfile.mock.calls[0]).toEqual([
+        user.id,
+        { birthday: null },
+      ]);
       expect(result.birthday).toBeNull();
     });
   });

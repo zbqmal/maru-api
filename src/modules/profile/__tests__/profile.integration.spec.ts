@@ -55,7 +55,9 @@ describe('ProfileController (integration)', () => {
     });
     userId = user.id;
 
-    const loginRes = await request(app.getHttpServer() as Parameters<typeof request>[0])
+    const loginRes = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
       .post('/login')
       .send({ email: 'profile@example.com', password: 'Str0ngPassword!' });
 
@@ -69,7 +71,9 @@ describe('ProfileController (integration)', () => {
 
   describe('GET /profile', () => {
     it('returns the current user profile', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .get('/profile')
         .set('Cookie', sessionCookie);
 
@@ -87,8 +91,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('returns 401 when not authenticated', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
-        .get('/profile');
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      ).get('/profile');
 
       expect(res.status).toBe(401);
     });
@@ -96,7 +101,9 @@ describe('ProfileController (integration)', () => {
 
   describe('PATCH /profile/name', () => {
     it('updates the display name', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/name')
         .set('Cookie', sessionCookie)
         .send({ name: 'Updated Name' });
@@ -111,7 +118,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('trims whitespace from name', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/name')
         .set('Cookie', sessionCookie)
         .send({ name: '  Trimmed Name  ' });
@@ -121,7 +130,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('rejects empty name', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/name')
         .set('Cookie', sessionCookie)
         .send({ name: '' });
@@ -130,7 +141,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('rejects name exceeding 100 characters', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/name')
         .set('Cookie', sessionCookie)
         .send({ name: 'a'.repeat(101) });
@@ -139,7 +152,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('returns 401 when not authenticated', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/name')
         .send({ name: 'Someone' });
 
@@ -149,7 +164,9 @@ describe('ProfileController (integration)', () => {
 
   describe('PATCH /profile/birthday', () => {
     it('sets the birthday', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/birthday')
         .set('Cookie', sessionCookie)
         .send({ birthday: '1990-05-20' });
@@ -160,7 +177,9 @@ describe('ProfileController (integration)', () => {
       const persisted = await prismaService.user.findUnique({
         where: { id: userId },
       });
-      expect(persisted?.birthday?.toISOString().slice(0, 10)).toBe('1990-05-20');
+      expect(persisted?.birthday?.toISOString().slice(0, 10)).toBe(
+        '1990-05-20',
+      );
     });
 
     it('clears the birthday when null is sent', async () => {
@@ -169,7 +188,9 @@ describe('ProfileController (integration)', () => {
         data: { birthday: new Date('1990-05-20') },
       });
 
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/birthday')
         .set('Cookie', sessionCookie)
         .send({ birthday: null });
@@ -179,7 +200,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('rejects an invalid date string', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/birthday')
         .set('Cookie', sessionCookie)
         .send({ birthday: 'not-a-date' });
@@ -188,7 +211,9 @@ describe('ProfileController (integration)', () => {
     });
 
     it('returns 401 when not authenticated', async () => {
-      const res = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      const res = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
         .patch('/profile/birthday')
         .send({ birthday: '1990-05-20' });
 
