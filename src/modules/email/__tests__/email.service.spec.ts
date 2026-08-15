@@ -24,8 +24,8 @@ describe('EmailService', () => {
 
     await emailService.send(options);
 
-    expect(mockProvider.send).toHaveBeenCalledTimes(1);
-    expect(mockProvider.send).toHaveBeenCalledWith(options);
+    expect(mockProvider.send.mock.calls).toHaveLength(1);
+    expect(mockProvider.send.mock.calls[0]).toEqual([options]);
   });
 
   it('propagates errors thrown by the provider', async () => {
@@ -52,6 +52,6 @@ describe('EmailService', () => {
 
     await emailService.send(options);
 
-    expect(mockProvider.send).toHaveBeenCalledWith(options);
+    expect(mockProvider.send.mock.calls[0]).toEqual([options]);
   });
 });
