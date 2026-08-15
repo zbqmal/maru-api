@@ -222,9 +222,19 @@ describe('AuthController (e2e)', () => {
 
     expect(logoutResponse.status).toBe(204);
 
-    const setCookieHeader = logoutResponse.headers['set-cookie'] as
-      string[] | undefined;
-    const clearedCookie = setCookieHeader?.find((c) =>
+    const rawSetCookieHeader = (
+      logoutResponse.headers as Record<string, unknown>
+    )['set-cookie'];
+    const setCookieHeader = rawSetCookieHeader
+      ? Array.isArray(rawSetCookieHeader)
+        ? rawSetCookieHeader.filter(
+            (cookie): cookie is string => typeof cookie === 'string',
+          )
+        : typeof rawSetCookieHeader === 'string'
+          ? [rawSetCookieHeader]
+          : []
+      : [];
+    const clearedCookie = setCookieHeader.find((c) =>
       c.startsWith('maru_session='),
     );
     expect(clearedCookie).toBeDefined();
