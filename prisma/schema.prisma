@@ -16,7 +16,8 @@ model User {
   profileImageKey String?   @map("profile_image_key") @db.VarChar(255)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
-  sessions        Session[]
+  sessions             Session[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -36,4 +37,18 @@ model Session {
   @@index([revokedAt])
   @@index([userId, revokedAt, expiresAt])
   @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }

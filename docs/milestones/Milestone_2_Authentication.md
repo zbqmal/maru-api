@@ -58,3 +58,11 @@
 - Keep `profile_image_key` ready for the later media milestone.
 - Enforce authenticated ownership.
 - Add DTO validation and tests.
+
+## PR 7 — Session and Token Cleanup
+
+- Add `@nestjs/schedule` for cron job support.
+- Schedule a recurring cleanup job (e.g., nightly).
+- Delete expired and revoked sessions.
+- Delete used and expired password reset tokens.
+- Add tests for the cleanup logic.
