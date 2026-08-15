@@ -6,6 +6,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { SessionTokenService } from '../session-token.service';
 import { PasswordResetService } from '../password-reset.service';
 import { EmailService } from '../../../email/email.service';
+import type { SendEmailOptions } from '../../../email/types/email.types';
 import { BadRequestException } from '@nestjs/common';
 
 process.env.NODE_ENV = 'test';
@@ -16,7 +17,9 @@ describe('PasswordResetService (integration)', () => {
   let prismaService: PrismaService;
   let passwordResetService: PasswordResetService;
   let sessionTokenService: SessionTokenService;
-  let emailServiceSendSpy: jest.SpyInstance;
+  let emailServiceSendSpy: jest.SpiedFunction<
+    (options: SendEmailOptions) => Promise<void>
+  >;
 
   beforeAll(async () => {
     if (!process.env.TEST_DATABASE_URL) {
