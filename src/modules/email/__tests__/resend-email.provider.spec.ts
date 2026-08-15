@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { ResendEmailProvider } from '../resend-email.provider';
 import { SendEmailOptions } from '../types/email.types';
+import { EnvironmentVariables } from '../../../common/config/environment.variables';
 
 jest.mock('resend');
 
@@ -14,7 +15,7 @@ describe('ResendEmailProvider', () => {
       if (key === 'EMAIL_FROM') return 'noreply@example.com';
       return undefined;
     }),
-  } as unknown as ConfigService;
+  } as unknown as ConfigService<EnvironmentVariables, true>;
 
   let provider: ResendEmailProvider;
 

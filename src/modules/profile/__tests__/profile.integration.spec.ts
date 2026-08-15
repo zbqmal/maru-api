@@ -61,7 +61,19 @@ describe('ProfileController (integration)', () => {
       .post('/login')
       .send({ email: 'profile@example.com', password: 'Str0ngPassword!' });
 
-    const setCookie = loginRes.headers['set-cookie'] as string[];
+    const rawSetCookie = (loginRes.headers as Record<string, unknown>)[
+      'set-cookie'
+    ];
+    const setCookie = Array.isArray(rawSetCookie)
+      ? rawSetCookie.filter(
+          (cookie): cookie is string => typeof cookie === 'string',
+        )
+      : typeof rawSetCookie === 'string'
+        ? [rawSetCookie]
+        : [];
+    if (setCookie.length === 0) {
+      throw new Error('Login response did not include a session cookie.');
+    }
     sessionCookie = setCookie[0].split(';')[0];
   });
 
