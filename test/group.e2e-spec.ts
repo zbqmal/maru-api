@@ -176,16 +176,15 @@ describe('GroupController (e2e)', () => {
     )
       .get('/groups')
       .set('Cookie', member.sessionCookie);
+    const groupsBody = response.body as Array<{ id: string; name: string }>;
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0]).toMatchObject({
+    expect(groupsBody).toHaveLength(1);
+    expect(groupsBody[0]).toMatchObject({
       id: sharedGroup.id,
       name: 'Shared Group',
     });
-    expect(
-      (response.body as Array<{ id: string }>).map((group) => group.id),
-    ).not.toContain(outsiderGroup.id);
+    expect(groupsBody.map((group) => group.id)).not.toContain(outsiderGroup.id);
   });
 
   it('returns group detail to members and forbids non-members', async () => {
@@ -232,13 +231,18 @@ describe('GroupController (e2e)', () => {
     )
       .get(`/groups/${group.id}`)
       .set('Cookie', member.sessionCookie);
+    const groupBody = allowedResponse.body as {
+      id: string;
+      name: string;
+      memberships: Array<{ userId: string; role: GroupMemberRole }>;
+    };
 
     expect(allowedResponse.status).toBe(200);
-    expect(allowedResponse.body).toMatchObject({
+    expect(groupBody).toMatchObject({
       id: group.id,
       name: 'Detail Group',
     });
-    expect(allowedResponse.body.memberships).toEqual(
+    expect(groupBody.memberships).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           userId: leader.userId,
@@ -307,20 +311,24 @@ describe('GroupController (e2e)', () => {
     )
       .get(`/groups/${group.id}/members`)
       .set('Cookie', leader.sessionCookie);
+    const membersBody = membersResponse.body as Array<{
+      userId: string;
+      role: GroupMemberRole;
+      user: { name: string };
+    }>;
 
     expect(membersResponse.status).toBe(200);
-    expect(membersResponse.body).toEqual([
-      expect.objectContaining({
-        userId: leader.userId,
-        role: GroupMemberRole.LEADER,
-        user: expect.objectContaining({ name: 'Members Leader' }),
-      }),
-      expect.objectContaining({
-        userId: member.userId,
-        role: GroupMemberRole.MEMBER,
-        user: expect.objectContaining({ name: 'Members User' }),
-      }),
-    ]);
+    expect(membersBody).toHaveLength(2);
+    expect(membersBody[0]).toMatchObject({
+      userId: leader.userId,
+      role: GroupMemberRole.LEADER,
+      user: { name: 'Members Leader' },
+    });
+    expect(membersBody[1]).toMatchObject({
+      userId: member.userId,
+      role: GroupMemberRole.MEMBER,
+      user: { name: 'Members User' },
+    });
 
     const deniedResponse = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
@@ -337,13 +345,14 @@ describe('GroupController (e2e)', () => {
   it('rejects unauthenticated group requests', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    const [createResponse, listResponse, detailResponse, membersResponse] =
-      await Promise.all([
-        request(httpServer).post('/groups').send({ name: 'Family' }),
-        request(httpServer).get('/groups'),
-        request(httpServer).get('/groups/group-1'),
-        request(httpServer).get('/groups/group-1/members'),
-      ]);
+    const createResponse = await request(httpServer)
+      .post('/groups')
+      .send({ name: 'Family' });
+    const listResponse = await request(httpServer).get('/groups');
+    const detailResponse = await request(httpServer).get('/groups/group-1');
+    const membersResponse = await request(httpServer).get(
+      '/groups/group-1/members',
+    );
 
     expect(createResponse.status).toBe(401);
     expect(listResponse.status).toBe(401);

@@ -201,12 +201,20 @@ describe('GroupModule (integration)', () => {
         expect.objectContaining({
           userId: leader.id,
           role: GroupMemberRole.LEADER,
-          user: expect.objectContaining({ name: 'List Leader' }),
+          user: {
+            id: leader.id,
+            name: 'List Leader',
+            profileImageKey: null,
+          },
         }),
         expect.objectContaining({
           userId: member.id,
           role: GroupMemberRole.MEMBER,
-          user: expect.objectContaining({ name: 'List Member' }),
+          user: {
+            id: member.id,
+            name: 'List Member',
+            profileImageKey: null,
+          },
         }),
       ]),
     );

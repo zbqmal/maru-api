@@ -1,25 +1,167 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/health": {
-      "get": {
-        "operationId": "HealthController_getHealth",
+    "/groups": {
+      "post": {
+        "operationId": "GroupController_createGroup",
         "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Health status payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponseDto"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupDto"
               }
             }
           }
         },
-        "summary": "Service health check",
+        "responses": {
+          "201": {
+            "description": "Created group with leader membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a group",
         "tags": [
-          "Health"
+          "Groups"
+        ]
+      },
+      "get": {
+        "operationId": "GroupController_listGroups",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Groups for current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List groups for current user",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/groups/{groupId}": {
+      "get": {
+        "operationId": "GroupController_getGroup",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          },
+          "404": {
+            "description": "Group not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get group detail",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/groups/{groupId}/members": {
+      "get": {
+        "operationId": "GroupController_listMembers",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupMemberResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          },
+          "404": {
+            "description": "Group not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List group members",
+        "tags": [
+          "Groups"
         ]
       }
     },
@@ -184,6 +326,28 @@
         ]
       }
     },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Health status payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Service health check",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
     "/profile": {
       "get": {
         "operationId": "ProfileController_getProfile",
@@ -303,34 +467,102 @@
       }
     },
     "schemas": {
-      "HealthResponseDto": {
+      "CreateGroupDto": {
         "type": "object",
         "properties": {
-          "status": {
+          "name": {
             "type": "string",
-            "example": "ok"
+            "example": "Family",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "GroupMemberUserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
           },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-08-10T12:34:56.789Z"
+          "name": {
+            "type": "string"
           },
-          "uptime": {
-            "type": "number",
-            "example": 123.45
-          },
-          "database": {
+          "profileImageKey": {
             "type": "object",
-            "example": {
-              "status": "up"
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "profileImageKey"
+        ]
+      },
+      "GroupMemberResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "LEADER",
+              "MEMBER"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/GroupMemberUserResponseDto"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "role",
+          "createdAt",
+          "updatedAt",
+          "user"
+        ]
+      },
+      "GroupResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberResponseDto"
             }
           }
         },
         "required": [
-          "status",
-          "timestamp",
-          "uptime",
-          "database"
+          "id",
+          "name",
+          "createdAt",
+          "updatedAt",
+          "memberships"
         ]
       },
       "RegisterDto": {
@@ -444,6 +676,36 @@
         "required": [
           "token",
           "newPassword"
+        ]
+      },
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-10T12:34:56.789Z"
+          },
+          "uptime": {
+            "type": "number",
+            "example": 123.45
+          },
+          "database": {
+            "type": "object",
+            "example": {
+              "status": "up"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "timestamp",
+          "uptime",
+          "database"
         ]
       },
       "ProfileResponseDto": {

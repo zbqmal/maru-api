@@ -160,9 +160,9 @@ describe('GroupService', () => {
       },
     } as never);
 
-    await expect(service.findByIdForUser('group-1', 'user-1')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.findByIdForUser('group-1', 'user-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('throws when a user is not a member of the requested group', async () => {
@@ -190,9 +190,9 @@ describe('GroupService', () => {
       },
     } as never);
 
-    await expect(service.findByIdForUser('group-1', 'user-1')).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.findByIdForUser('group-1', 'user-1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('returns members for an authorized user', async () => {
@@ -219,8 +219,8 @@ describe('GroupService', () => {
       },
     } as never);
 
-    await expect(service.findMembersForUser('group-1', 'user-1')).resolves.toEqual([
-      membership,
-    ]);
+    await expect(
+      service.findMembersForUser('group-1', 'user-1'),
+    ).resolves.toEqual([membership]);
   });
 });

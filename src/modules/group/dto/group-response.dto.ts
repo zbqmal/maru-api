@@ -22,7 +22,9 @@ export class GroupResponseDto {
   memberships!: GroupMemberResponseDto[];
 }
 
-export function toGroupResponseDto(group: GroupWithMemberships): GroupResponseDto {
+export function toGroupResponseDto(
+  group: GroupWithMemberships,
+): GroupResponseDto {
   return {
     id: group.id,
     name: group.name,

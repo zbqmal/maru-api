@@ -96,7 +96,10 @@ export class GroupService {
     });
   }
 
-  async findByIdForUser(id: string, userId: string): Promise<GroupWithMemberships> {
+  async findByIdForUser(
+    id: string,
+    userId: string,
+  ): Promise<GroupWithMemberships> {
     const group = await this.findById(id);
 
     if (group === null) {
