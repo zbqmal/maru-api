@@ -69,7 +69,7 @@ jobs:
         run: yarn lint
 
       - name: Unit tests
-        run: yarn test --testPathIgnorePatterns=integration.spec.ts
+        run: yarn test
 
       - name: Build
         run: yarn build

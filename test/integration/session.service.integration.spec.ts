@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { validateEnvironment } from '../../../../common/config/environment.validation';
-import { AuthModule } from '../../auth.module';
-import { PrismaService } from '../../../database/prisma.service';
-import { SessionService } from '../session.service';
-import { SessionTokenService } from '../session-token.service';
+import { validateEnvironment } from '../../src/common/config/environment.validation';
+import { AuthModule } from '../../src/modules/auth/auth.module';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { SessionService } from '../../src/modules/auth/services/session.service';
+import { SessionTokenService } from '../../src/modules/auth/services/session-token.service';
 
 process.env.NODE_ENV = 'test';
 process.env.TEST_DATABASE_URL ??= process.env.DATABASE_URL;

@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 
-import { AppModule } from './../src/app.module';
-import { AllExceptionsFilter } from './../src/common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from './../src/common/interceptors/logging.interceptor';
-import { PrismaService } from './../src/modules/database/prisma.service';
-import { SessionTokenService } from './../src/modules/auth/services/session-token.service';
-import { SessionTokenCleanupService } from './../src/modules/auth/services/session-token-cleanup.service';
+import { AppModule } from '../../src/app.module';
+import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { SessionTokenService } from '../../src/modules/auth/services/session-token.service';
+import { SessionTokenCleanupService } from '../../src/modules/auth/services/session-token-cleanup.service';
 
 describe('SessionTokenCleanupService (e2e)', () => {
   let app: INestApplication;

@@ -5,10 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { UserService } from '../../user/user.service';
-import { SESSION_COOKIE_NAME } from '../constants/session-cookie.constants';
 import { SessionService } from '../services/session.service';
 import { AuthenticatedRequest } from '../types/authenticated-request.interface';
 import { getCookieValue } from '../utils/cookie.util';
+import { SESSION_COOKIE_NAME } from '../../../lib/constants/auth.constants';
 
 @Injectable()
 export class SessionAuthGuard implements CanActivate {

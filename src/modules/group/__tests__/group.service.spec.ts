@@ -1,3 +1,4 @@
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { GroupMemberRole, Prisma } from '@prisma/client';
 import { GroupService } from '../group.service';
 
@@ -69,6 +70,15 @@ describe('GroupService', () => {
       include: {
         memberships: {
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImageKey: true,
+              },
+            },
+          },
         },
       },
     });
@@ -93,8 +103,124 @@ describe('GroupService', () => {
       include: {
         memberships: {
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImageKey: true,
+              },
+            },
+          },
         },
       },
     });
+  });
+
+  it('lists groups scoped to a user membership', async () => {
+    const groupFindMany = jest.fn().mockResolvedValue([]);
+    const service = new GroupService({
+      group: {
+        findMany: groupFindMany,
+      },
+    } as never);
+
+    await service.findGroupsForUser('user-1');
+
+    expect(groupFindMany).toHaveBeenCalledWith({
+      where: {
+        memberships: {
+          some: {
+            userId: 'user-1',
+          },
+        },
+      },
+      include: {
+        memberships: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImageKey: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  });
+
+  it('throws when a requested group does not exist', async () => {
+    const service = new GroupService({
+      group: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+    } as never);
+
+    await expect(
+      service.findByIdForUser('group-1', 'user-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('throws when a user is not a member of the requested group', async () => {
+    const service = new GroupService({
+      group: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'group-1',
+          name: 'Family',
+          memberships: [
+            {
+              id: 'membership-1',
+              groupId: 'group-1',
+              userId: 'user-2',
+              role: GroupMemberRole.LEADER,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              user: {
+                id: 'user-2',
+                name: 'Other User',
+                profileImageKey: null,
+              },
+            },
+          ],
+        }),
+      },
+    } as never);
+
+    await expect(
+      service.findByIdForUser('group-1', 'user-1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('returns members for an authorized user', async () => {
+    const membership = {
+      id: 'membership-1',
+      groupId: 'group-1',
+      userId: 'user-1',
+      role: GroupMemberRole.LEADER,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: {
+        id: 'user-1',
+        name: 'Leader User',
+        profileImageKey: null,
+      },
+    };
+    const service = new GroupService({
+      group: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'group-1',
+          name: 'Family',
+          memberships: [membership],
+        }),
+      },
+    } as never);
+
+    await expect(
+      service.findMembersForUser('group-1', 'user-1'),
+    ).resolves.toEqual([membership]);
   });
 });

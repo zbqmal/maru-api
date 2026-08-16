@@ -1,11 +1,12 @@
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { GroupMemberRole } from '@prisma/client';
-import { validateEnvironment } from '../../../common/config/environment.validation';
-import { PrismaService } from '../../database/prisma.service';
-import { GroupMembershipService } from '../group-membership.service';
-import { GroupModule } from '../group.module';
-import { GroupService } from '../group.service';
+import { validateEnvironment } from '../../src/common/config/environment.validation';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { GroupMembershipService } from '../../src/modules/group/group-membership.service';
+import { GroupModule } from '../../src/modules/group/group.module';
+import { GroupService } from '../../src/modules/group/group.service';
 
 process.env.NODE_ENV = 'test';
 process.env.TEST_DATABASE_URL ??= process.env.DATABASE_URL;
@@ -145,6 +146,164 @@ describe('GroupModule (integration)', () => {
         role: GroupMemberRole.LEADER,
       }),
     ).rejects.toThrow();
+  });
+
+  it('lists only the groups that a user belongs to', async () => {
+    const [leader, member, outsider] = await Promise.all([
+      prismaService.user.create({
+        data: {
+          email: 'list-leader@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'List Leader',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'list-member@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'List Member',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'list-outsider@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'List Outsider',
+        },
+      }),
+    ]);
+
+    const [sharedGroup, outsiderGroup] = await Promise.all([
+      groupService.createGroupWithLeader({
+        name: 'Shared Group',
+        leaderUserId: leader.id,
+      }),
+      groupService.createGroupWithLeader({
+        name: 'Outsider Group',
+        leaderUserId: outsider.id,
+      }),
+    ]);
+
+    await groupMembershipService.addMember({
+      groupId: sharedGroup.id,
+      userId: member.id,
+    });
+
+    const groups = await groupService.findGroupsForUser(member.id);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      id: sharedGroup.id,
+      name: 'Shared Group',
+    });
+    expect(groups[0].memberships).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: leader.id,
+          role: GroupMemberRole.LEADER,
+          user: {
+            id: leader.id,
+            name: 'List Leader',
+            profileImageKey: null,
+          },
+        }),
+        expect.objectContaining({
+          userId: member.id,
+          role: GroupMemberRole.MEMBER,
+          user: {
+            id: member.id,
+            name: 'List Member',
+            profileImageKey: null,
+          },
+        }),
+      ]),
+    );
+    expect(groups.map((group) => group.id)).not.toContain(outsiderGroup.id);
+  });
+
+  it('enforces membership for group detail retrieval', async () => {
+    const [leader, outsider] = await Promise.all([
+      prismaService.user.create({
+        data: {
+          email: 'detail-leader@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Detail Leader',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'detail-outsider@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Detail Outsider',
+        },
+      }),
+    ]);
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Private Group',
+      leaderUserId: leader.id,
+    });
+
+    await expect(
+      groupService.findByIdForUser(group.id, outsider.id),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('returns a not-found error for an unknown group detail request', async () => {
+    await expect(
+      groupService.findByIdForUser('missing-group-id', 'user-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns ordered group members for an authorized user', async () => {
+    const [leader, member] = await Promise.all([
+      prismaService.user.create({
+        data: {
+          email: 'members-leader@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Members Leader',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'members-user@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Members User',
+        },
+      }),
+    ]);
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Members Group',
+      leaderUserId: leader.id,
+    });
+
+    await groupMembershipService.addMember({
+      groupId: group.id,
+      userId: member.id,
+    });
+
+    const members = await groupService.findMembersForUser(group.id, leader.id);
+
+    expect(members).toHaveLength(2);
+    expect(members[0]).toMatchObject({
+      userId: leader.id,
+      role: GroupMemberRole.LEADER,
+      user: {
+        id: leader.id,
+        name: 'Members Leader',
+        profileImageKey: null,
+      },
+    });
+    expect(members[1]).toMatchObject({
+      userId: member.id,
+      role: GroupMemberRole.MEMBER,
+      user: {
+        id: member.id,
+        name: 'Members User',
+        profileImageKey: null,
+      },
+    });
   });
 
   it('rejects persisting a group without a leader membership', async () => {
