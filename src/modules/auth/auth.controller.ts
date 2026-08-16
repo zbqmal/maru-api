@@ -29,11 +29,11 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SessionAuthGuard } from './guards/session-auth.guard';
-import { SESSION_COOKIE_NAME } from './constants/session-cookie.constants';
 import { AuthService } from './auth.service';
 import { getCookieValue } from './utils/cookie.util';
 import type { AuthenticatedRequest } from './types/authenticated-request.interface';
 import { PasswordResetService } from './services/password-reset.service';
+import { SESSION_COOKIE_NAME } from '../../lib/constants/auth.constants';
 
 @ApiTags('Auth')
 @Controller()
