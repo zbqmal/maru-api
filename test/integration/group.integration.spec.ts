@@ -2,11 +2,11 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { GroupMemberRole } from '@prisma/client';
-import { validateEnvironment } from '../../../common/config/environment.validation';
-import { PrismaService } from '../../database/prisma.service';
-import { GroupMembershipService } from '../group-membership.service';
-import { GroupModule } from '../group.module';
-import { GroupService } from '../group.service';
+import { validateEnvironment } from '../../src/common/config/environment.validation';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { GroupMembershipService } from '../../src/modules/group/group-membership.service';
+import { GroupModule } from '../../src/modules/group/group.module';
+import { GroupService } from '../../src/modules/group/group.service';
 
 process.env.NODE_ENV = 'test';
 process.env.TEST_DATABASE_URL ??= process.env.DATABASE_URL;

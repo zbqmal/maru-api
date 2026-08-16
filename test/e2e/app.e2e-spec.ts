@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 
-import { AppModule } from './../src/app.module';
-import { AllExceptionsFilter } from './../src/common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from './../src/common/interceptors/logging.interceptor';
+import { AppModule } from '../../src/app.module';
+import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
 
 describe('HealthController (e2e)', () => {
   let app: INestApplication;

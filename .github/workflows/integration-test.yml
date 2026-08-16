@@ -66,4 +66,4 @@ jobs:
         run: yarn prisma:migrate:deploy
 
       - name: Integration tests
-        run: yarn test --runInBand --testPathPatterns=integration.spec.ts
+        run: yarn test:integration --runInBand

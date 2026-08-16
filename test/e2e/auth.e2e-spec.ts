@@ -2,14 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 
-import { AppModule } from './../src/app.module';
-import { AllExceptionsFilter } from './../src/common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from './../src/common/interceptors/logging.interceptor';
-import { PrismaService } from './../src/modules/database/prisma.service';
-import { PasswordHashingService } from './../src/modules/auth/services/password-hashing.service';
-import { EmailService } from './../src/modules/email/email.service';
-import { SessionTokenService } from './../src/modules/auth/services/session-token.service';
-import type { SendEmailOptions } from './../src/modules/email/types/email.types';
+import { AppModule } from '../../src/app.module';
+import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { PasswordHashingService } from '../../src/modules/auth/services/password-hashing.service';
+import { EmailService } from '../../src/modules/email/email.service';
+import { SessionTokenService } from '../../src/modules/auth/services/session-token.service';
+import type { SendEmailOptions } from '../../src/modules/email/types/email.types';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;

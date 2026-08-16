@@ -2,10 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { GroupMemberRole } from '@prisma/client';
 import {
   GroupMembershipWithUser,
-  type GroupWithMemberships,
-} from '../group.service';
-
-type GroupMemberUser = GroupWithMemberships['memberships'][number]['user'];
+  GroupMemberUser,
+} from '../../../lib/types/group.types';
 
 export class GroupMemberUserResponseDto {
   @ApiProperty()

@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { validateEnvironment } from '../../../../common/config/environment.validation';
-import { AuthModule } from '../../auth.module';
-import { PrismaService } from '../../../database/prisma.service';
-import { SessionTokenService } from '../session-token.service';
-import { PasswordResetService } from '../password-reset.service';
-import { EmailService } from '../../../email/email.service';
-import type { SendEmailOptions } from '../../../email/types/email.types';
+import { validateEnvironment } from '../../src/common/config/environment.validation';
+import { AuthModule } from '../../src/modules/auth/auth.module';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { SessionTokenService } from '../../src/modules/auth/services/session-token.service';
+import { PasswordResetService } from '../../src/modules/auth/services/password-reset.service';
+import { EmailService } from '../../src/modules/email/email.service';
+import type { SendEmailOptions } from '../../src/modules/email/types/email.types';
 import { BadRequestException } from '@nestjs/common';
 
 process.env.NODE_ENV = 'test';

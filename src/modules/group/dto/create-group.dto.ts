@@ -3,7 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateGroupDto {
-  @ApiProperty({ example: 'Family', maxLength: 100 })
+  @ApiProperty({
+    description: 'The name of the group',
+    example: 'Family',
+    maxLength: 100,
+  })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )

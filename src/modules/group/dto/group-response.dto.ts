@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { GroupWithMemberships } from '../group.service';
 import {
   GroupMemberResponseDto,
   toGroupMemberResponseDto,
 } from './group-member-response.dto';
+import { GroupWithMemberships } from '../../../lib/types/group.types';
 
 export class GroupResponseDto {
   @ApiProperty()

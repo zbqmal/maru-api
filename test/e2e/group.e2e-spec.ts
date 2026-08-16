@@ -2,11 +2,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GroupMemberRole } from '@prisma/client';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from '../src/common/interceptors/logging.interceptor';
-import { PrismaService } from '../src/modules/database/prisma.service';
-import { EmailService } from '../src/modules/email/email.service';
+import { AppModule } from '../../src/app.module';
+import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { EmailService } from '../../src/modules/email/email.service';
 
 describe('GroupController (e2e)', () => {
   let app: INestApplication;

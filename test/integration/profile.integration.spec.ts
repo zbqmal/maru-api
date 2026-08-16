@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from '../../../app.module';
-import { AllExceptionsFilter } from '../../../common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from '../../../common/interceptors/logging.interceptor';
-import { PrismaService } from '../../database/prisma.service';
-import { PasswordHashingService } from '../../auth/services/password-hashing.service';
-import { EmailService } from '../../email/email.service';
+import { AppModule } from '../../src/app.module';
+import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
+import { PrismaService } from '../../src/modules/database/prisma.service';
+import { PasswordHashingService } from '../../src/modules/auth/services/password-hashing.service';
+import { EmailService } from '../../src/modules/email/email.service';
 
 describe('ProfileController (integration)', () => {
   let app: INestApplication;

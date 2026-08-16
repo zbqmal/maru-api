@@ -3,14 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  Group,
-  GroupMember,
-  GroupMemberRole,
-  Prisma,
-  User,
-} from '@prisma/client';
+import { GroupMemberRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import {
+  GroupMembershipWithUser,
+  GroupWithMemberships,
+} from '../../lib/types/group.types';
 
 const groupMemberUserSelect = {
   id: true,
@@ -28,16 +26,6 @@ const groupWithMembershipsInclude = {
     },
   },
 } satisfies Prisma.GroupInclude;
-
-type GroupMemberUserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
-
-export type GroupMembershipWithUser = GroupMember & {
-  user: GroupMemberUserSummary;
-};
-
-export type GroupWithMemberships = Group & {
-  memberships: GroupMembershipWithUser[];
-};
 
 interface CreateGroupWithLeaderInput {
   name: string;
