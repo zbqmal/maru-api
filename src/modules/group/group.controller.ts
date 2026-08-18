@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -12,6 +13,7 @@ import {
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -27,8 +29,10 @@ import {
   toGroupMemberResponseDto,
 } from './dto/group-member-response.dto';
 import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
+import { TransferLeadershipDto } from './dto/transfer-leadership.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupLeaderGuard } from './guards/group-leader.guard';
+import { GroupMemberGuard } from './guards/group-member.guard';
 import { GroupService } from './group.service';
 
 @ApiTags('Groups')
@@ -117,5 +121,41 @@ export class GroupController {
       name: dto.name,
     });
     return toGroupResponseDto(group);
+  }
+
+  @ApiOperation({ summary: 'Transfer group leadership (leader only)' })
+  @ApiOkResponse({
+    description: 'Updated group with new leader',
+    type: GroupResponseDto,
+  })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Target member not found in group.' })
+  @UseGuards(GroupLeaderGuard)
+  @HttpCode(200)
+  @Post(':groupId/transfer-leadership')
+  async transferLeadership(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Body() dto: TransferLeadershipDto,
+  ): Promise<GroupResponseDto> {
+    const group = await this.groupService.transferLeadership(
+      groupId,
+      user.id,
+      dto.newLeaderId,
+    );
+    return toGroupResponseDto(group);
+  }
+
+  @ApiOperation({ summary: 'Leave a group' })
+  @ApiNoContentResponse({ description: 'Successfully left the group.' })
+  @ApiForbiddenResponse({ description: 'Group membership required.' })
+  @UseGuards(GroupMemberGuard)
+  @HttpCode(204)
+  @Delete(':groupId/members/me')
+  async leaveGroup(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+  ): Promise<void> {
+    await this.groupService.leaveGroup(groupId, user.id);
   }
 }

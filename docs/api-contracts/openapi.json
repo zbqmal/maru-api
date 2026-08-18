@@ -501,6 +501,99 @@
           "Profile"
         ]
       }
+    },
+    "/groups/{groupId}/transfer-leadership": {
+      "post": {
+        "operationId": "GroupController_transferLeadership",
+        "summary": "Transfer group leadership (leader only)",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferLeadershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated group with new leader",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          },
+          "404": {
+            "description": "Target member not found in group."
+          }
+        },
+        "tags": [
+          "Groups"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/groups/{groupId}/members/me": {
+      "delete": {
+        "operationId": "GroupController_leaveGroup",
+        "summary": "Leave a group",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successfully left the group."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          }
+        },
+        "tags": [
+          "Groups"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -836,6 +929,18 @@
         },
         "required": [
           "birthday"
+        ]
+      },
+      "TransferLeadershipDto": {
+        "type": "object",
+        "properties": {
+          "newLeaderId": {
+            "type": "string",
+            "description": "User ID of the member to promote to leader"
+          }
+        },
+        "required": [
+          "newLeaderId"
         ]
       }
     }
