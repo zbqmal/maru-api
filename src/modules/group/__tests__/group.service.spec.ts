@@ -223,4 +223,60 @@ describe('GroupService', () => {
       service.findMembersForUser('group-1', 'user-1'),
     ).resolves.toEqual([membership]);
   });
+
+  it('updates the group name via the database', async () => {
+    const updatedGroup = {
+      id: 'group-1',
+      name: 'New Name',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      memberships: [],
+    };
+    const groupUpdate = jest.fn().mockResolvedValue(updatedGroup);
+    const service = new GroupService({
+      group: { update: groupUpdate },
+    } as never);
+
+    const result = await service.updateGroup('group-1', { name: 'New Name' });
+
+    expect(groupUpdate).toHaveBeenCalledWith({
+      where: { id: 'group-1' },
+      data: { name: 'New Name' },
+      include: {
+        memberships: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImageKey: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedGroup);
+  });
+
+  it('passes undefined name to the database when no name is provided', async () => {
+    const updatedGroup = {
+      id: 'group-1',
+      name: 'Family',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      memberships: [],
+    };
+    const groupUpdate = jest.fn().mockResolvedValue(updatedGroup);
+    const service = new GroupService({
+      group: { update: groupUpdate },
+    } as never);
+
+    await service.updateGroup('group-1', {});
+
+    expect(groupUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { name: undefined } }),
+    );
+  });
 });

@@ -32,6 +32,10 @@ interface CreateGroupWithLeaderInput {
   leaderUserId: string;
 }
 
+interface UpdateGroupInput {
+  name?: string;
+}
+
 @Injectable()
 export class GroupService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -107,5 +111,16 @@ export class GroupService {
   ): Promise<GroupMembershipWithUser[]> {
     const group = await this.findByIdForUser(groupId, userId);
     return group.memberships;
+  }
+
+  async updateGroup(
+    id: string,
+    input: UpdateGroupInput,
+  ): Promise<GroupWithMemberships> {
+    return this.prismaService.group.update({
+      where: { id },
+      data: { name: input.name },
+      include: groupWithMembershipsInclude,
+    });
   }
 }

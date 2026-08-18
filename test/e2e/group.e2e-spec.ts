@@ -353,11 +353,164 @@ describe('GroupController (e2e)', () => {
     const membersResponse = await request(httpServer).get(
       '/groups/group-1/members',
     );
+    const updateResponse = await request(httpServer)
+      .patch('/groups/group-1')
+      .send({ name: 'New Name' });
 
     expect(createResponse.status).toBe(401);
     expect(listResponse.status).toBe(401);
     expect(detailResponse.status).toBe(401);
     expect(membersResponse.status).toBe(401);
+    expect(updateResponse.status).toBe(401);
+  });
+
+  it('allows the leader to update a group name', async () => {
+    const { sessionCookie } = await registerAndLogin(
+      'group-update-leader@example.com',
+      'Str0ngPassword!',
+      'Update Leader',
+    );
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', sessionCookie)
+      .send({ name: 'Original Name' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const updateResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}`)
+      .set('Cookie', sessionCookie)
+      .send({ name: '  Updated Name  ' });
+
+    expect(updateResponse.status).toBe(200);
+    expect((updateResponse.body as { name: string }).name).toBe('Updated Name');
+
+    const persisted = await prismaService.group.findUniqueOrThrow({
+      where: { id: groupId },
+    });
+    expect(persisted.name).toBe('Updated Name');
+  });
+
+  it('forbids a regular member from updating a group', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin(
+        'group-update-leader2@example.com',
+        'Str0ngPassword!',
+        'Update Leader 2',
+      ),
+      registerAndLogin(
+        'group-update-member@example.com',
+        'Str0ngPassword!',
+        'Update Member',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Leader Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: member.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+
+    const updateResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}`)
+      .set('Cookie', member.sessionCookie)
+      .send({ name: 'Hijacked Name' });
+
+    expect(updateResponse.status).toBe(403);
+    expect((updateResponse.body as { message: string }).message).toBe(
+      'Group leader role required.',
+    );
+
+    const persisted = await prismaService.group.findUniqueOrThrow({
+      where: { id: groupId },
+    });
+    expect(persisted.name).toBe('Leader Group');
+  });
+
+  it('forbids an outsider from updating a group', async () => {
+    const [leader, outsider] = await Promise.all([
+      registerAndLogin(
+        'group-update-leader3@example.com',
+        'Str0ngPassword!',
+        'Update Leader 3',
+      ),
+      registerAndLogin(
+        'group-update-outsider@example.com',
+        'Str0ngPassword!',
+        'Update Outsider',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Leader Only Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const updateResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}`)
+      .set('Cookie', outsider.sessionCookie)
+      .send({ name: 'Outsider Name' });
+
+    expect(updateResponse.status).toBe(403);
+  });
+
+  it('rejects invalid group update payloads', async () => {
+    const { sessionCookie } = await registerAndLogin(
+      'group-update-invalid@example.com',
+      'Str0ngPassword!',
+      'Update Invalid User',
+    );
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', sessionCookie)
+      .send({ name: 'Valid Name' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const blankResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}`)
+      .set('Cookie', sessionCookie)
+      .send({ name: '   ' });
+
+    expect(blankResponse.status).toBe(400);
+
+    const extraFieldResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}`)
+      .set('Cookie', sessionCookie)
+      .send({ name: 'Valid', extra: 'blocked' });
+
+    expect(extraFieldResponse.status).toBe(400);
   });
 
   it('rejects invalid group creation payloads and reports missing groups', async () => {

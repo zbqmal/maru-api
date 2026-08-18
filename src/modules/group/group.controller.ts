@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -26,6 +27,8 @@ import {
   toGroupMemberResponseDto,
 } from './dto/group-member-response.dto';
 import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
+import { GroupLeaderGuard } from './guards/group-leader.guard';
 import { GroupService } from './group.service';
 
 @ApiTags('Groups')
@@ -98,5 +101,21 @@ export class GroupController {
       user.id,
     );
     return memberships.map(toGroupMemberResponseDto);
+  }
+
+  @ApiOperation({ summary: 'Update a group (leader only)' })
+  @ApiOkResponse({ description: 'Updated group', type: GroupResponseDto })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Group not found.' })
+  @UseGuards(GroupLeaderGuard)
+  @Patch(':groupId')
+  async updateGroup(
+    @Param('groupId') groupId: string,
+    @Body() dto: UpdateGroupDto,
+  ): Promise<GroupResponseDto> {
+    const group = await this.groupService.updateGroup(groupId, {
+      name: dto.name,
+    });
+    return toGroupResponseDto(group);
   }
 }
