@@ -678,7 +678,7 @@ describe('GroupController (e2e)', () => {
     expect(response.status).toBe(404);
   });
 
-  // ─── DELETE /groups/:groupId/members/me ───────────────────────────────────
+  // ─── DELETE /groups/:groupId/leave ───────────────────────────────────
 
   it('allows a regular member to leave a group', async () => {
     const [leader, member] = await Promise.all([
@@ -714,7 +714,7 @@ describe('GroupController (e2e)', () => {
     const leaveResponse = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .delete(`/groups/${groupId}/members/me`)
+      .delete(`/groups/${groupId}/leave`)
       .set('Cookie', member.sessionCookie);
 
     expect(leaveResponse.status).toBe(204);
@@ -772,7 +772,7 @@ describe('GroupController (e2e)', () => {
     const leaveResponse = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .delete(`/groups/${groupId}/members/me`)
+      .delete(`/groups/${groupId}/leave`)
       .set('Cookie', leader.sessionCookie);
 
     expect(leaveResponse.status).toBe(204);
@@ -807,7 +807,7 @@ describe('GroupController (e2e)', () => {
     const leaveResponse = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .delete(`/groups/${groupId}/members/me`)
+      .delete(`/groups/${groupId}/leave`)
       .set('Cookie', sessionCookie);
 
     expect(leaveResponse.status).toBe(204);
@@ -844,7 +844,7 @@ describe('GroupController (e2e)', () => {
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .delete(`/groups/${groupId}/members/me`)
+      .delete(`/groups/${groupId}/leave`)
       .set('Cookie', outsider.sessionCookie);
 
     expect(response.status).toBe(403);
@@ -858,7 +858,7 @@ describe('GroupController (e2e)', () => {
       .send({ newLeaderId: 'user-1' });
 
     const leaveResponse = await request(httpServer).delete(
-      '/groups/group-1/members/me',
+      '/groups/group-1/leave',
     );
 
     expect(transferResponse.status).toBe(401);

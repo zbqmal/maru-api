@@ -151,7 +151,7 @@ export class GroupController {
   @ApiForbiddenResponse({ description: 'Group membership required.' })
   @UseGuards(GroupMemberGuard)
   @HttpCode(204)
-  @Delete(':groupId/members/me')
+  @Delete(':groupId/leave')
   async leaveGroup(
     @CurrentUser() user: User,
     @Param('groupId') groupId: string,
