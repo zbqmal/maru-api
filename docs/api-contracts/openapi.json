@@ -168,6 +168,42 @@
         "tags": [
           "Groups"
         ]
+      },
+      "delete": {
+        "operationId": "GroupController_deleteGroup",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Group deleted successfully."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          },
+          "404": {
+            "description": "Group not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a group (leader only)",
+        "tags": [
+          "Groups"
+        ]
       }
     },
     "/groups/{groupId}/members": {

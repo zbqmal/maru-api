@@ -864,4 +864,161 @@ describe('GroupController (e2e)', () => {
     expect(transferResponse.status).toBe(401);
     expect(leaveResponse.status).toBe(401);
   });
+
+  // ─── DELETE /groups/:groupId ──────────────────────────────────────────────
+
+  it('allows the group leader to delete the group', async () => {
+    const { sessionCookie } = await registerAndLogin(
+      'delete-leader@example.com',
+      'Str0ngPassword!',
+      'Delete Leader',
+    );
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', sessionCookie)
+      .send({ name: 'Group To Delete' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const deleteResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}`)
+      .set('Cookie', sessionCookie);
+
+    expect(deleteResponse.status).toBe(204);
+
+    const deleted = await prismaService.group.findUnique({
+      where: { id: groupId },
+    });
+    expect(deleted).toBeNull();
+  });
+
+  it('cascades deletion to all memberships', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin(
+        'delete-cascade-leader@example.com',
+        'Str0ngPassword!',
+        'Delete Cascade Leader',
+      ),
+      registerAndLogin(
+        'delete-cascade-member@example.com',
+        'Str0ngPassword!',
+        'Delete Cascade Member',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Cascade Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: member.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+
+    const deleteResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}`)
+      .set('Cookie', leader.sessionCookie);
+
+    expect(deleteResponse.status).toBe(204);
+
+    const remainingMembers = await prismaService.groupMember.findMany({
+      where: { groupId },
+    });
+    expect(remainingMembers).toHaveLength(0);
+  });
+
+  it('forbids a regular member from deleting the group', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin(
+        'delete-forbid-leader@example.com',
+        'Str0ngPassword!',
+        'Delete Forbid Leader',
+      ),
+      registerAndLogin(
+        'delete-forbid-member@example.com',
+        'Str0ngPassword!',
+        'Delete Forbid Member',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Forbid Delete Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: member.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+
+    const deleteResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}`)
+      .set('Cookie', member.sessionCookie);
+
+    expect(deleteResponse.status).toBe(403);
+  });
+
+  it('forbids a non-member from deleting the group', async () => {
+    const [leader, outsider] = await Promise.all([
+      registerAndLogin(
+        'delete-nonmember-leader@example.com',
+        'Str0ngPassword!',
+        'Delete Non-member Leader',
+      ),
+      registerAndLogin(
+        'delete-nonmember-outsider@example.com',
+        'Str0ngPassword!',
+        'Delete Non-member Outsider',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Non-member Delete Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const deleteResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}`)
+      .set('Cookie', outsider.sessionCookie);
+
+    expect(deleteResponse.status).toBe(403);
+  });
+
+  it('rejects unauthenticated group deletion', async () => {
+    const deleteResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    ).delete('/groups/group-1');
+
+    expect(deleteResponse.status).toBe(401);
+  });
 });
