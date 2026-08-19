@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { GroupMemberRole } from '@prisma/client';
 import { validateEnvironment } from '../../src/common/config/environment.validation';
 import { PrismaService } from '../../src/modules/database/prisma.service';
+import { GroupDeletionService } from '../../src/modules/group/group-deletion.service';
 import { GroupMembershipService } from '../../src/modules/group/group-membership.service';
 import { GroupModule } from '../../src/modules/group/group.module';
 import { GroupService } from '../../src/modules/group/group.service';
@@ -15,6 +16,7 @@ describe('GroupModule (integration)', () => {
   let prismaService: PrismaService;
   let groupService: GroupService;
   let groupMembershipService: GroupMembershipService;
+  let groupDeletionService: GroupDeletionService;
 
   beforeAll(async () => {
     if (!process.env.TEST_DATABASE_URL) {
@@ -38,6 +40,7 @@ describe('GroupModule (integration)', () => {
     prismaService = moduleRef.get(PrismaService);
     groupService = moduleRef.get(GroupService);
     groupMembershipService = moduleRef.get(GroupMembershipService);
+    groupDeletionService = moduleRef.get(GroupDeletionService);
   });
 
   beforeEach(async () => {
@@ -533,5 +536,52 @@ describe('GroupModule (integration)', () => {
       where: { id: group.id },
     });
     expect(deleted).toBeNull();
+  });
+
+  // ─── GroupDeletionService ─────────────────────────────────────────────────
+
+  it('deletes the group and all memberships when leader explicitly deletes', async () => {
+    const leader = await prismaService.user.create({
+      data: {
+        email: 'delete-leader@example.com',
+        passwordHash: 'placeholder-password-hash',
+        name: 'Delete Leader',
+      },
+    });
+    const member = await prismaService.user.create({
+      data: {
+        email: 'delete-member@example.com',
+        passwordHash: 'placeholder-password-hash',
+        name: 'Delete Member',
+      },
+    });
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Delete Group',
+      leaderUserId: leader.id,
+    });
+
+    await groupMembershipService.addMember({
+      groupId: group.id,
+      userId: member.id,
+    });
+
+    await groupDeletionService.deleteGroup(group.id);
+
+    const deletedGroup = await prismaService.group.findUnique({
+      where: { id: group.id },
+    });
+    expect(deletedGroup).toBeNull();
+
+    const remainingMembers = await prismaService.groupMember.findMany({
+      where: { groupId: group.id },
+    });
+    expect(remainingMembers).toHaveLength(0);
+  });
+
+  it('throws NotFoundException when deleting a group that does not exist', async () => {
+    await expect(
+      groupDeletionService.deleteGroup('non-existent-group-id'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

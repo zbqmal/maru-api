@@ -31,6 +31,7 @@ import {
 import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
 import { TransferLeadershipDto } from './dto/transfer-leadership.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
+import { GroupDeletionService } from './group-deletion.service';
 import { GroupLeaderGuard } from './guards/group-leader.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
 import { GroupService } from './group.service';
@@ -41,7 +42,10 @@ import { GroupService } from './group.service';
 @UseGuards(SessionAuthGuard)
 @Controller('groups')
 export class GroupController {
-  constructor(private readonly groupService: GroupService) {}
+  constructor(
+    private readonly groupService: GroupService,
+    private readonly groupDeletionService: GroupDeletionService,
+  ) {}
 
   @ApiOperation({ summary: 'Create a group' })
   @ApiCreatedResponse({
@@ -157,5 +161,16 @@ export class GroupController {
     @Param('groupId') groupId: string,
   ): Promise<void> {
     await this.groupService.leaveGroup(groupId, user.id);
+  }
+
+  @ApiOperation({ summary: 'Delete a group (leader only)' })
+  @ApiNoContentResponse({ description: 'Group deleted successfully.' })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Group not found.' })
+  @UseGuards(GroupLeaderGuard)
+  @HttpCode(204)
+  @Delete(':groupId')
+  async deleteGroup(@Param('groupId') groupId: string): Promise<void> {
+    await this.groupDeletionService.deleteGroup(groupId);
   }
 }
