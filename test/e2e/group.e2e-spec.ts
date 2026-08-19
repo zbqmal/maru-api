@@ -546,4 +546,322 @@ describe('GroupController (e2e)', () => {
       'Group not found.',
     );
   });
+
+  // ─── POST /groups/:groupId/transfer-leadership ────────────────────────────
+
+  it('allows the leader to transfer leadership to a member', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin(
+        'transfer-leader@example.com',
+        'Str0ngPassword!',
+        'Transfer Leader',
+      ),
+      registerAndLogin(
+        'transfer-member@example.com',
+        'Str0ngPassword!',
+        'Transfer Member',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Transfer Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: member.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+
+    const transferResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/transfer-leadership`)
+      .set('Cookie', leader.sessionCookie)
+      .send({ newLeaderId: member.userId });
+
+    expect(transferResponse.status).toBe(200);
+
+    const body = transferResponse.body as {
+      memberships: Array<{ userId: string; role: GroupMemberRole }>;
+    };
+    expect(body.memberships.find((m) => m.userId === member.userId)?.role).toBe(
+      GroupMemberRole.LEADER,
+    );
+    expect(body.memberships.find((m) => m.userId === leader.userId)?.role).toBe(
+      GroupMemberRole.MEMBER,
+    );
+  });
+
+  it('forbids a regular member from transferring leadership', async () => {
+    const [leader, member, target] = await Promise.all([
+      registerAndLogin(
+        'transfer-forbid-leader@example.com',
+        'Str0ngPassword!',
+        'Transfer Forbid Leader',
+      ),
+      registerAndLogin(
+        'transfer-forbid-member@example.com',
+        'Str0ngPassword!',
+        'Transfer Forbid Member',
+      ),
+      registerAndLogin(
+        'transfer-forbid-target@example.com',
+        'Str0ngPassword!',
+        'Transfer Forbid Target',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Forbid Transfer Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.createMany({
+      data: [
+        { groupId, userId: member.userId, role: GroupMemberRole.MEMBER },
+        { groupId, userId: target.userId, role: GroupMemberRole.MEMBER },
+      ],
+    });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/transfer-leadership`)
+      .set('Cookie', member.sessionCookie)
+      .send({ newLeaderId: target.userId });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('rejects leadership transfer to a non-member', async () => {
+    const [leader, outsider] = await Promise.all([
+      registerAndLogin(
+        'transfer-nonmember-leader@example.com',
+        'Str0ngPassword!',
+        'Transfer NonMember Leader',
+      ),
+      registerAndLogin(
+        'transfer-nonmember-outsider@example.com',
+        'Str0ngPassword!',
+        'Transfer NonMember Outsider',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'NonMember Transfer Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/transfer-leadership`)
+      .set('Cookie', leader.sessionCookie)
+      .send({ newLeaderId: outsider.userId });
+
+    expect(response.status).toBe(404);
+  });
+
+  // ─── DELETE /groups/:groupId/leave ───────────────────────────────────
+
+  it('allows a regular member to leave a group', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin(
+        'leave-leader@example.com',
+        'Str0ngPassword!',
+        'Leave Leader',
+      ),
+      registerAndLogin(
+        'leave-member@example.com',
+        'Str0ngPassword!',
+        'Leave Member',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Leave Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: member.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+
+    const leaveResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}/leave`)
+      .set('Cookie', member.sessionCookie);
+
+    expect(leaveResponse.status).toBe(204);
+
+    const remaining = await prismaService.groupMember.findMany({
+      where: { groupId },
+    });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].userId).toBe(leader.userId);
+  });
+
+  it('promotes the longest-standing member when the leader leaves', async () => {
+    const [leader, firstMember, secondMember] = await Promise.all([
+      registerAndLogin(
+        'leader-leave-leader@example.com',
+        'Str0ngPassword!',
+        'Leader Leave Leader',
+      ),
+      registerAndLogin(
+        'leader-leave-first@example.com',
+        'Str0ngPassword!',
+        'Leader Leave First',
+      ),
+      registerAndLogin(
+        'leader-leave-second@example.com',
+        'Str0ngPassword!',
+        'Leader Leave Second',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Leader Leave Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: firstMember.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+    await prismaService.groupMember.create({
+      data: {
+        groupId,
+        userId: secondMember.userId,
+        role: GroupMemberRole.MEMBER,
+      },
+    });
+
+    const leaveResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}/leave`)
+      .set('Cookie', leader.sessionCookie);
+
+    expect(leaveResponse.status).toBe(204);
+
+    const remaining = await prismaService.groupMember.findMany({
+      where: { groupId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    expect(remaining).toHaveLength(2);
+    expect(remaining.find((m) => m.userId === leader.userId)).toBeUndefined();
+
+    const newLeader = remaining.find((m) => m.role === GroupMemberRole.LEADER);
+    expect(newLeader?.userId).toBe(firstMember.userId);
+  });
+
+  it('deletes the group when the sole leader leaves', async () => {
+    const { sessionCookie } = await registerAndLogin(
+      'sole-leader-leave@example.com',
+      'Str0ngPassword!',
+      'Sole Leader Leave',
+    );
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', sessionCookie)
+      .send({ name: 'Sole Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const leaveResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}/leave`)
+      .set('Cookie', sessionCookie);
+
+    expect(leaveResponse.status).toBe(204);
+
+    const deleted = await prismaService.group.findUnique({
+      where: { id: groupId },
+    });
+    expect(deleted).toBeNull();
+  });
+
+  it('forbids a non-member from calling leave', async () => {
+    const [leader, outsider] = await Promise.all([
+      registerAndLogin(
+        'leave-outsider-leader@example.com',
+        'Str0ngPassword!',
+        'Leave Outsider Leader',
+      ),
+      registerAndLogin(
+        'leave-outsider@example.com',
+        'Str0ngPassword!',
+        'Leave Outsider',
+      ),
+    ]);
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post('/groups')
+      .set('Cookie', leader.sessionCookie)
+      .send({ name: 'Leave Outsider Group' });
+
+    const groupId = (createResponse.body as { id: string }).id;
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}/leave`)
+      .set('Cookie', outsider.sessionCookie);
+
+    expect(response.status).toBe(403);
+  });
+
+  it('rejects unauthenticated requests to transfer leadership and leave group', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+
+    const transferResponse = await request(httpServer)
+      .post('/groups/group-1/transfer-leadership')
+      .send({ newLeaderId: 'user-1' });
+
+    const leaveResponse = await request(httpServer).delete(
+      '/groups/group-1/leave',
+    );
+
+    expect(transferResponse.status).toBe(401);
+    expect(leaveResponse.status).toBe(401);
+  });
 });

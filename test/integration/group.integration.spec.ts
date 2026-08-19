@@ -341,4 +341,197 @@ describe('GroupModule (integration)', () => {
       }),
     ).rejects.toThrow('must have exactly one leader');
   });
+
+  // ─── transferLeadership ───────────────────────────────────────────────────
+
+  it('transfers leadership from the current leader to an existing member', async () => {
+    const [leader, member] = await Promise.all([
+      prismaService.user.create({
+        data: {
+          email: 'transfer-leader@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Transfer Leader',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'transfer-member@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Transfer Member',
+        },
+      }),
+    ]);
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Transfer Group',
+      leaderUserId: leader.id,
+    });
+
+    await groupMembershipService.addMember({
+      groupId: group.id,
+      userId: member.id,
+    });
+
+    const updated = await groupService.transferLeadership(
+      group.id,
+      leader.id,
+      member.id,
+    );
+
+    const leaderMembership = updated.memberships.find(
+      (m) => m.userId === leader.id,
+    );
+    const memberMembership = updated.memberships.find(
+      (m) => m.userId === member.id,
+    );
+
+    expect(leaderMembership?.role).toBe(GroupMemberRole.MEMBER);
+    expect(memberMembership?.role).toBe(GroupMemberRole.LEADER);
+  });
+
+  it('rejects leadership transfer to a non-member', async () => {
+    const leader = await prismaService.user.create({
+      data: {
+        email: 'transfer-reject-leader@example.com',
+        passwordHash: 'placeholder-password-hash',
+        name: 'Transfer Reject Leader',
+      },
+    });
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Transfer Reject Group',
+      leaderUserId: leader.id,
+    });
+
+    await expect(
+      groupService.transferLeadership(group.id, leader.id, 'non-member-id'),
+    ).rejects.toThrow();
+  });
+
+  it('rejects self-transfer when the leader is already the leader', async () => {
+    const leader = await prismaService.user.create({
+      data: {
+        email: 'transfer-self-leader@example.com',
+        passwordHash: 'placeholder-password-hash',
+        name: 'Transfer Self Leader',
+      },
+    });
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Transfer Self Group',
+      leaderUserId: leader.id,
+    });
+
+    await expect(
+      groupService.transferLeadership(group.id, leader.id, leader.id),
+    ).rejects.toThrow();
+  });
+
+  // ─── leaveGroup ───────────────────────────────────────────────────────────
+
+  it('removes a regular member when they leave', async () => {
+    const [leader, member] = await Promise.all([
+      prismaService.user.create({
+        data: {
+          email: 'leave-leader@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Leave Leader',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'leave-member@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Leave Member',
+        },
+      }),
+    ]);
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Leave Group',
+      leaderUserId: leader.id,
+    });
+
+    await groupMembershipService.addMember({
+      groupId: group.id,
+      userId: member.id,
+    });
+
+    await groupService.leaveGroup(group.id, member.id);
+
+    const remaining = await groupMembershipService.listMembers(group.id);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].userId).toBe(leader.id);
+  });
+
+  it('promotes the longest-standing member when the leader leaves', async () => {
+    const [leader, firstMember, secondMember] = await Promise.all([
+      prismaService.user.create({
+        data: {
+          email: 'leader-leave-leader@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Leader Leave Leader',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'leader-leave-first@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Leader Leave First',
+        },
+      }),
+      prismaService.user.create({
+        data: {
+          email: 'leader-leave-second@example.com',
+          passwordHash: 'placeholder-password-hash',
+          name: 'Leader Leave Second',
+        },
+      }),
+    ]);
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Leader Leave Group',
+      leaderUserId: leader.id,
+    });
+
+    await groupMembershipService.addMember({
+      groupId: group.id,
+      userId: firstMember.id,
+    });
+    await groupMembershipService.addMember({
+      groupId: group.id,
+      userId: secondMember.id,
+    });
+
+    await groupService.leaveGroup(group.id, leader.id);
+
+    const remaining = await groupMembershipService.listMembers(group.id);
+    expect(remaining).toHaveLength(2);
+    expect(remaining.find((m) => m.userId === leader.id)).toBeUndefined();
+
+    const newLeader = remaining.find((m) => m.role === GroupMemberRole.LEADER);
+    expect(newLeader?.userId).toBe(firstMember.id);
+  });
+
+  it('deletes the group when the sole leader leaves', async () => {
+    const leader = await prismaService.user.create({
+      data: {
+        email: 'sole-leader-leave@example.com',
+        passwordHash: 'placeholder-password-hash',
+        name: 'Sole Leader Leave',
+      },
+    });
+
+    const group = await groupService.createGroupWithLeader({
+      name: 'Sole Leader Group',
+      leaderUserId: leader.id,
+    });
+
+    await groupService.leaveGroup(group.id, leader.id);
+
+    const deleted = await prismaService.group.findUnique({
+      where: { id: group.id },
+    });
+    expect(deleted).toBeNull();
+  });
 });
