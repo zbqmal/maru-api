@@ -6,6 +6,7 @@ import { EmailModule } from '../email/email.module';
 import { UserModule } from '../user/user.module';
 import { GroupController } from './group.controller';
 import { GroupDeletionService } from './group-deletion.service';
+import { GroupInvitationController } from './group-invitation.controller';
 import { GroupInvitationService } from './group-invitation.service';
 import { GroupLeaderGuard } from './guards/group-leader.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
@@ -14,7 +15,7 @@ import { GroupService } from './group.service';
 
 @Module({
   imports: [DatabaseModule, AuthModule, UserModule, EmailModule],
-  controllers: [GroupController],
+  controllers: [GroupController, GroupInvitationController],
   providers: [
     GroupService,
     GroupMembershipService,

@@ -4,12 +4,14 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
+import { SessionTokenService } from '../../src/modules/auth/services/session-token.service';
 import { PrismaService } from '../../src/modules/database/prisma.service';
 import { EmailService } from '../../src/modules/email/email.service';
 
 describe('GroupController – invitations (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
+  let sessionTokenService: SessionTokenService;
   let emailSend: jest.Mock;
 
   beforeAll(async () => {
@@ -35,6 +37,7 @@ describe('GroupController – invitations (e2e)', () => {
     await app.init();
 
     prismaService = app.get(PrismaService);
+    sessionTokenService = app.get(SessionTokenService);
   });
 
   beforeEach(async () => {
@@ -88,6 +91,17 @@ describe('GroupController – invitations (e2e)', () => {
       .set('Cookie', sessionCookie)
       .send({ name });
     return (res.body as { id: string }).id;
+  }
+
+  function extractInvitationToken(): string {
+    const [options] = emailSend.mock.calls.at(-1) as [{ text?: string }];
+    const tokenMatch = options.text?.match(/token=([A-Za-z0-9_-]+)/);
+
+    if (tokenMatch === null || tokenMatch === undefined) {
+      throw new Error('Invitation email did not include a token.');
+    }
+
+    return tokenMatch[1];
   }
 
   it('returns 201 with invitation details when a leader invites a new email', async () => {
@@ -214,5 +228,140 @@ describe('GroupController – invitations (e2e)', () => {
       .send({ email: 'not-an-email' });
 
     expect(res.status).toBe(400);
+  });
+
+  it('returns 200 with invitation details when validating a valid token', async () => {
+    const { sessionCookie } = await registerAndLogin('leader@example.com');
+    const groupId = await createGroup(sessionCookie);
+
+    await request(httpServer())
+      .post(`/groups/${groupId}/invitations`)
+      .set('Cookie', sessionCookie)
+      .send({ email: 'alice@example.com' });
+    const token = extractInvitationToken();
+
+    const res = await request(httpServer()).get(
+      `/group-invitations/validate?token=${token}`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      groupId,
+      groupName: 'Family',
+      invitedEmail: 'alice@example.com',
+    });
+  });
+
+  it('returns 200 and joins the group when the invited user accepts the invitation', async () => {
+    const { sessionCookie: leaderCookie } =
+      await registerAndLogin('leader@example.com');
+    const groupId = await createGroup(leaderCookie);
+
+    await request(httpServer())
+      .post(`/groups/${groupId}/invitations`)
+      .set('Cookie', leaderCookie)
+      .send({ email: 'alice@example.com' });
+    const token = extractInvitationToken();
+
+    const { sessionCookie: invitedCookie, userId: invitedUserId } =
+      await registerAndLogin('alice@example.com');
+
+    const res = await request(httpServer())
+      .post('/group-invitations/accept')
+      .set('Cookie', invitedCookie)
+      .send({ token });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      id: groupId,
+      name: 'Family',
+    });
+    expect(
+      (res.body as { memberships: Array<{ userId: string }> }).memberships,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: invitedUserId }),
+      ]),
+    );
+
+    await expect(
+      prismaService.groupInvitation.findFirst({
+        where: { groupId, invitedEmail: 'alice@example.com' },
+      }),
+    ).resolves.toMatchObject({
+      acceptedAt: expect.any(Date),
+    });
+  });
+
+  it('returns 403 when another authenticated user tries to accept the invitation', async () => {
+    const { sessionCookie: leaderCookie } =
+      await registerAndLogin('leader@example.com');
+    const groupId = await createGroup(leaderCookie);
+
+    await request(httpServer())
+      .post(`/groups/${groupId}/invitations`)
+      .set('Cookie', leaderCookie)
+      .send({ email: 'alice@example.com' });
+    const token = extractInvitationToken();
+
+    const { sessionCookie: wrongCookie } =
+      await registerAndLogin('wrong@example.com');
+
+    const res = await request(httpServer())
+      .post('/group-invitations/accept')
+      .set('Cookie', wrongCookie)
+      .send({ token });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 410 for an expired invitation token', async () => {
+    const { sessionCookie: leaderCookie } =
+      await registerAndLogin('leader@example.com');
+    const groupId = await createGroup(leaderCookie);
+    const token = 'expired-token';
+
+    await prismaService.groupInvitation.create({
+      data: {
+        groupId,
+        invitedEmail: 'alice@example.com',
+        tokenHash: sessionTokenService.hashToken(token),
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+
+    const res = await request(httpServer()).get(
+      `/group-invitations/validate?token=${token}`,
+    );
+
+    expect(res.status).toBe(410);
+  });
+
+  it('returns 409 when trying to reuse an already accepted invitation', async () => {
+    const { sessionCookie: leaderCookie } =
+      await registerAndLogin('leader@example.com');
+    const groupId = await createGroup(leaderCookie);
+
+    await request(httpServer())
+      .post(`/groups/${groupId}/invitations`)
+      .set('Cookie', leaderCookie)
+      .send({ email: 'alice@example.com' });
+    const token = extractInvitationToken();
+
+    const { sessionCookie: invitedCookie } =
+      await registerAndLogin('alice@example.com');
+
+    await request(httpServer())
+      .post('/group-invitations/accept')
+      .set('Cookie', invitedCookie)
+      .send({ token })
+      .expect(200);
+
+    const res = await request(httpServer())
+      .post('/group-invitations/accept')
+      .set('Cookie', invitedCookie)
+      .send({ token });
+
+    expect(res.status).toBe(409);
   });
 });
