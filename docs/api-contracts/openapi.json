@@ -344,6 +344,61 @@
         ]
       }
     },
+    "/groups/{groupId}/invitations": {
+      "post": {
+        "operationId": "GroupController_createInvitation",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation created and email sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          },
+          "404": {
+            "description": "Group not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Invite a user to a group by email (leader only)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
     "/register": {
       "post": {
         "operationId": "AuthController_register",
@@ -766,6 +821,50 @@
         },
         "required": [
           "newLeaderId"
+        ]
+      },
+      "CreateInvitationDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "alice@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "InvitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "invitedEmail": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "groupId",
+          "invitedEmail",
+          "expiresAt",
+          "acceptedAt",
+          "createdAt"
         ]
       },
       "RegisterDto": {

@@ -24,14 +24,20 @@ import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { CreateInvitationDto } from './dto/create-invitation.dto';
 import {
   GroupMemberResponseDto,
   toGroupMemberResponseDto,
 } from './dto/group-member-response.dto';
+import {
+  InvitationResponseDto,
+  toInvitationResponseDto,
+} from './dto/invitation-response.dto';
 import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
 import { TransferLeadershipDto } from './dto/transfer-leadership.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupDeletionService } from './group-deletion.service';
+import { GroupInvitationService } from './group-invitation.service';
 import { GroupLeaderGuard } from './guards/group-leader.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
 import { GroupService } from './group.service';
@@ -45,6 +51,7 @@ export class GroupController {
   constructor(
     private readonly groupService: GroupService,
     private readonly groupDeletionService: GroupDeletionService,
+    private readonly groupInvitationService: GroupInvitationService,
   ) {}
 
   @ApiOperation({ summary: 'Create a group' })
@@ -161,6 +168,28 @@ export class GroupController {
     @Param('groupId') groupId: string,
   ): Promise<void> {
     await this.groupService.leaveGroup(groupId, user.id);
+  }
+
+  @ApiOperation({ summary: 'Invite a user to a group by email (leader only)' })
+  @ApiCreatedResponse({
+    description: 'Invitation created and email sent.',
+    type: InvitationResponseDto,
+  })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Group not found.' })
+  @UseGuards(GroupLeaderGuard)
+  @Post(':groupId/invitations')
+  async createInvitation(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateInvitationDto,
+  ): Promise<InvitationResponseDto> {
+    const invitation = await this.groupInvitationService.createInvitation(
+      groupId,
+      user.id,
+      dto.email,
+    );
+    return toInvitationResponseDto(invitation);
   }
 
   @ApiOperation({ summary: 'Delete a group (leader only)' })

@@ -29,11 +29,12 @@ model User {
 }
 
 model Group {
-  id          String        @id @default(cuid())
-  name        String        @db.VarChar(100)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  id          String            @id @default(cuid())
+  name        String            @db.VarChar(100)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
   memberships GroupMember[]
+  invitations GroupInvitation[]
 
   @@map("groups")
 }
@@ -84,4 +85,20 @@ model PasswordResetToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+model GroupInvitation {
+  id           String    @id @default(cuid())
+  groupId      String    @map("group_id")
+  invitedEmail String    @map("invited_email") @db.VarChar(320)
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt    DateTime  @map("expires_at")
+  acceptedAt   DateTime? @map("accepted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([groupId, invitedEmail])
+  @@index([expiresAt])
+  @@map("group_invitations")
 }
