@@ -203,7 +203,9 @@ export class GroupInvitationService {
         });
 
         if (existingMembership !== null) {
-          throw new ConflictException('You are already a member of this group.');
+          throw new ConflictException(
+            'You are already a member of this group.',
+          );
         }
 
         try {
@@ -241,9 +243,7 @@ export class GroupInvitationService {
   }
 
   private async findInvitationByToken(
-    prisma:
-      | PrismaService
-      | Prisma.TransactionClient,
+    prisma: PrismaService | Prisma.TransactionClient,
     token: string,
   ): Promise<InvitationValidationRecord | null> {
     const tokenHash = this.sessionTokenService.hashToken(token.trim());

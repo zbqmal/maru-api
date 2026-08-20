@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Post,
   Query,
   UseGuards,
@@ -20,10 +21,7 @@ import {
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import {
-  GroupResponseDto,
-  toGroupResponseDto,
-} from './dto/group-response.dto';
+import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
 import { InvitationTokenDto } from './dto/invitation-token.dto';
 import {
   InvitationValidationResponseDto,
@@ -68,10 +66,12 @@ export class GroupInvitationController {
   })
   @ApiNotFoundResponse({ description: 'Invitation not found.' })
   @ApiConflictResponse({
-    description: 'Invitation has already been used or membership already exists.',
+    description:
+      'Invitation has already been used or membership already exists.',
   })
   @ApiGoneResponse({ description: 'Invitation has expired.' })
   @UseGuards(SessionAuthGuard)
+  @HttpCode(200)
   @Post('accept')
   async acceptInvitation(
     @CurrentUser() user: User,

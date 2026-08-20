@@ -218,7 +218,11 @@ describe('GroupInvitationService', () => {
       const prisma = makePrisma();
       const service = buildService({ prisma });
 
-      await service.createInvitation(GROUP_ID, LEADER_ID, '  ALICE@EXAMPLE.COM ');
+      await service.createInvitation(
+        GROUP_ID,
+        LEADER_ID,
+        '  ALICE@EXAMPLE.COM ',
+      );
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -277,7 +281,11 @@ describe('GroupInvitationService', () => {
       const prisma = makePrisma();
       const service = buildService({ prisma });
 
-      await service.createInvitation(GROUP_ID, LEADER_ID, '  ALICE@EXAMPLE.COM ');
+      await service.createInvitation(
+        GROUP_ID,
+        LEADER_ID,
+        '  ALICE@EXAMPLE.COM ',
+      );
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -376,7 +384,10 @@ describe('GroupInvitationService', () => {
       const prisma = makePrisma();
       const service = buildService({ prisma });
 
-      const result = await service.acceptInvitation('raw-token-abc123', MEMBER_ID);
+      const result = await service.acceptInvitation(
+        'raw-token-abc123',
+        MEMBER_ID,
+      );
 
       expect(prisma.groupMember.create).toHaveBeenCalledWith({
         data: {
@@ -403,7 +414,9 @@ describe('GroupInvitationService', () => {
       const prisma = makePrisma({
         user: {
           findFirst: jest.fn().mockResolvedValue(null),
-          findUnique: jest.fn().mockResolvedValue({ email: 'other@example.com' }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ email: 'other@example.com' }),
         },
       });
       const service = buildService({ prisma });
@@ -439,7 +452,9 @@ describe('GroupInvitationService', () => {
 
     it('throws ConflictException when the user is already a group member', async () => {
       const prisma = makePrisma();
-      prisma.groupMember.findUnique.mockResolvedValue({ id: 'membership-existing' });
+      prisma.groupMember.findUnique.mockResolvedValue({
+        id: 'membership-existing',
+      });
 
       const service = buildService({ prisma });
 

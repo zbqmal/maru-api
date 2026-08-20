@@ -262,13 +262,13 @@ describe('GroupInvitationService (integration)', () => {
     );
     const token = extractInvitationToken();
 
-    await expect(invitationService.validateInvitation(token)).resolves.toMatchObject(
-      {
-        groupId: group.id,
-        groupName: 'Family',
-        invitedEmail: 'alice@example.com',
-      },
-    );
+    await expect(
+      invitationService.validateInvitation(token),
+    ).resolves.toMatchObject({
+      groupId: group.id,
+      groupName: 'Family',
+      invitedEmail: 'alice@example.com',
+    });
 
     const joinedGroup = await invitationService.acceptInvitation(
       token,
@@ -342,9 +342,9 @@ describe('GroupInvitationService (integration)', () => {
       },
     });
 
-    await expect(invitationService.validateInvitation(token)).rejects.toBeInstanceOf(
-      GoneException,
-    );
+    await expect(
+      invitationService.validateInvitation(token),
+    ).rejects.toBeInstanceOf(GoneException);
     await expect(
       invitationService.acceptInvitation(token, invitedUser.id),
     ).rejects.toBeInstanceOf(GoneException);
@@ -369,9 +369,9 @@ describe('GroupInvitationService (integration)', () => {
 
     await invitationService.acceptInvitation(token, invitedUser.id);
 
-    await expect(invitationService.validateInvitation(token)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      invitationService.validateInvitation(token),
+    ).rejects.toBeInstanceOf(ConflictException);
     await expect(
       invitationService.acceptInvitation(token, invitedUser.id),
     ).rejects.toBeInstanceOf(ConflictException);

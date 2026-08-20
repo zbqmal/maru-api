@@ -399,6 +399,98 @@
         ]
       }
     },
+    "/group-invitations/validate": {
+      "get": {
+        "operationId": "GroupInvitationController_validateInvitation",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invitation is valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationValidationResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invitation not found."
+          },
+          "409": {
+            "description": "Invitation has already been used."
+          },
+          "410": {
+            "description": "Invitation has expired."
+          }
+        },
+        "summary": "Validate an invitation token",
+        "tags": [
+          "Group Invitations"
+        ]
+      }
+    },
+    "/group-invitations/accept": {
+      "post": {
+        "operationId": "GroupInvitationController_acceptInvitation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted and membership created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Invitation email does not match the authenticated account."
+          },
+          "404": {
+            "description": "Invitation not found."
+          },
+          "409": {
+            "description": "Invitation has already been used or membership already exists."
+          },
+          "410": {
+            "description": "Invitation has expired."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Accept an invitation for the current user",
+        "tags": [
+          "Group Invitations"
+        ]
+      }
+    },
     "/register": {
       "post": {
         "operationId": "AuthController_register",
@@ -865,6 +957,48 @@
           "expiresAt",
           "acceptedAt",
           "createdAt"
+        ]
+      },
+      "InvitationValidationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "invitedEmail": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "groupId",
+          "groupName",
+          "invitedEmail",
+          "expiresAt",
+          "createdAt"
+        ]
+      },
+      "InvitationTokenDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
         ]
       },
       "RegisterDto": {

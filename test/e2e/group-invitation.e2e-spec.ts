@@ -284,13 +284,10 @@ describe('GroupController – invitations (e2e)', () => {
       ]),
     );
 
-    await expect(
-      prismaService.groupInvitation.findFirst({
-        where: { groupId, invitedEmail: 'alice@example.com' },
-      }),
-    ).resolves.toMatchObject({
-      acceptedAt: expect.any(Date),
+    const invitation = await prismaService.groupInvitation.findFirst({
+      where: { groupId, invitedEmail: 'alice@example.com' },
     });
+    expect(invitation?.acceptedAt).toBeInstanceOf(Date);
   });
 
   it('returns 403 when another authenticated user tries to accept the invitation', async () => {
