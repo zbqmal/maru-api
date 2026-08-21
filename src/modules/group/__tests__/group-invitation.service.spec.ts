@@ -1,24 +1,91 @@
 import {
   ConflictException,
   ForbiddenException,
+  GoneException,
   NotFoundException,
 } from '@nestjs/common';
+import { GroupMemberRole } from '@prisma/client';
 import { GroupInvitationService } from '../group-invitation.service';
 
 const GROUP_ID = 'group-1';
 const LEADER_ID = 'user-leader';
+const MEMBER_ID = 'user-member';
 const INVITED_EMAIL = 'alice@example.com';
 
-function makePrisma(overrides: Record<string, unknown> = {}) {
+function makeValidInvitationRecord() {
   return {
+    id: 'invitation-1',
+    groupId: GROUP_ID,
+    invitedEmail: INVITED_EMAIL,
+    tokenHash: 'hashed-token',
+    expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+    acceptedAt: null,
+    createdAt: new Date('2026-08-20T00:00:00.000Z'),
+    group: {
+      name: 'Family',
+    },
+  };
+}
+
+function makeJoinedGroup() {
+  return {
+    id: GROUP_ID,
+    name: 'Family',
+    createdAt: new Date('2026-08-20T00:00:00.000Z'),
+    updatedAt: new Date('2026-08-20T00:00:00.000Z'),
+    memberships: [
+      {
+        id: 'membership-1',
+        groupId: GROUP_ID,
+        userId: LEADER_ID,
+        role: GroupMemberRole.LEADER,
+        createdAt: new Date('2026-08-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-08-20T00:00:00.000Z'),
+        user: {
+          id: LEADER_ID,
+          name: 'Leader User',
+          profileImageKey: null,
+        },
+      },
+      {
+        id: 'membership-2',
+        groupId: GROUP_ID,
+        userId: MEMBER_ID,
+        role: GroupMemberRole.MEMBER,
+        createdAt: new Date('2026-08-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-08-20T00:00:00.000Z'),
+        user: {
+          id: MEMBER_ID,
+          name: 'Invited User',
+          profileImageKey: null,
+        },
+      },
+    ],
+  };
+}
+
+function makePrisma(overrides: Record<string, unknown> = {}) {
+  const prisma = {
     group: {
       findUnique: jest.fn().mockResolvedValue({ id: GROUP_ID, name: 'Family' }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue(makeJoinedGroup()),
     },
     user: {
       findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn().mockResolvedValue({ email: INVITED_EMAIL }),
+    },
+    groupMember: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({
+        id: 'membership-2',
+        groupId: GROUP_ID,
+        userId: MEMBER_ID,
+        role: GroupMemberRole.MEMBER,
+      }),
     },
     groupInvitation: {
       findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn().mockResolvedValue(makeValidInvitationRecord()),
       create: jest.fn().mockResolvedValue({
         id: 'invitation-1',
         groupId: GROUP_ID,
@@ -28,9 +95,19 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
         acceptedAt: null,
         createdAt: new Date(),
       }),
+      update: jest.fn().mockResolvedValue(undefined),
     },
+    $transaction: jest.fn(),
     ...overrides,
   };
+
+  prisma.$transaction.mockImplementation(
+    async (
+      callback: (client: typeof prisma) => Promise<unknown>,
+    ): Promise<unknown> => callback(prisma),
+  );
+
+  return prisma;
 }
 
 function makeGroupMembershipService(isLeader = true) {
@@ -137,6 +214,32 @@ describe('GroupInvitationService', () => {
       );
     });
 
+    it('normalizes the invited email before checking and saving it', async () => {
+      const prisma = makePrisma();
+      const service = buildService({ prisma });
+
+      await service.createInvitation(
+        GROUP_ID,
+        LEADER_ID,
+        '  ALICE@EXAMPLE.COM ',
+      );
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            email: INVITED_EMAIL,
+          }) as unknown,
+        }) as unknown,
+      );
+      expect(prisma.groupInvitation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            invitedEmail: INVITED_EMAIL,
+          }) as unknown,
+        }) as unknown,
+      );
+    });
+
     it('sends an invitation email containing the accept URL', async () => {
       const email = makeEmailService();
       const service = buildService({ email });
@@ -174,11 +277,15 @@ describe('GroupInvitationService', () => {
       });
     });
 
-    it('checks for existing members using the exact invited email', async () => {
+    it('checks for existing members using the normalized invited email', async () => {
       const prisma = makePrisma();
       const service = buildService({ prisma });
 
-      await service.createInvitation(GROUP_ID, LEADER_ID, INVITED_EMAIL);
+      await service.createInvitation(
+        GROUP_ID,
+        LEADER_ID,
+        '  ALICE@EXAMPLE.COM ',
+      );
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -206,6 +313,194 @@ describe('GroupInvitationService', () => {
           }) as unknown,
         }) as unknown,
       );
+    });
+  });
+
+  describe('validateInvitation', () => {
+    it('returns invitation details for a valid token', async () => {
+      const prisma = makePrisma();
+      const token = makeSessionTokenService();
+      const service = buildService({ prisma, token });
+
+      await expect(
+        service.validateInvitation(' raw-token-abc123 '),
+      ).resolves.toMatchObject({
+        id: 'invitation-1',
+        groupId: GROUP_ID,
+        groupName: 'Family',
+        invitedEmail: INVITED_EMAIL,
+      });
+
+      expect(token.hashToken).toHaveBeenCalledWith('raw-token-abc123');
+      expect(prisma.groupInvitation.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tokenHash: 'hashed-token' },
+        }) as unknown,
+      );
+    });
+
+    it('throws NotFoundException for an unknown token', async () => {
+      const prisma = makePrisma();
+      prisma.groupInvitation.findUnique.mockResolvedValue(null);
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.validateInvitation('missing-token'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws GoneException for an expired invitation', async () => {
+      const prisma = makePrisma();
+      prisma.groupInvitation.findUnique.mockResolvedValue({
+        ...makeValidInvitationRecord(),
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.validateInvitation('expired-token'),
+      ).rejects.toBeInstanceOf(GoneException);
+    });
+
+    it('throws ConflictException for an already-used invitation', async () => {
+      const prisma = makePrisma();
+      prisma.groupInvitation.findUnique.mockResolvedValue({
+        ...makeValidInvitationRecord(),
+        acceptedAt: new Date(),
+      });
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.validateInvitation('used-token'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('acceptInvitation', () => {
+    it('creates a member and marks the invitation accepted', async () => {
+      const prisma = makePrisma();
+      const service = buildService({ prisma });
+
+      const result = await service.acceptInvitation(
+        'raw-token-abc123',
+        MEMBER_ID,
+      );
+
+      expect(prisma.groupMember.create).toHaveBeenCalledWith({
+        data: {
+          groupId: GROUP_ID,
+          userId: MEMBER_ID,
+          role: GroupMemberRole.MEMBER,
+        },
+      });
+      expect(prisma.groupInvitation.update).toHaveBeenCalledWith({
+        where: { id: 'invitation-1' },
+        data: { acceptedAt: expect.any(Date) as unknown },
+      });
+      expect(result.memberships).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            userId: MEMBER_ID,
+            role: GroupMemberRole.MEMBER,
+          }),
+        ]),
+      );
+    });
+
+    it('throws ForbiddenException when the authenticated email does not match', async () => {
+      const prisma = makePrisma({
+        user: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ email: 'other@example.com' }),
+        },
+      });
+      const service = buildService({ prisma });
+
+      await expect(
+        service.acceptInvitation('raw-token-abc123', MEMBER_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.groupMember.create).not.toHaveBeenCalled();
+    });
+
+    it('matches invited email case-insensitively during acceptance', async () => {
+      const prisma = makePrisma({
+        groupInvitation: {
+          ...makePrisma().groupInvitation,
+          findUnique: jest.fn().mockResolvedValue({
+            ...makeValidInvitationRecord(),
+            invitedEmail: 'ALICE@EXAMPLE.COM',
+          }),
+        },
+        user: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue({ email: INVITED_EMAIL }),
+        },
+      });
+      const service = buildService({ prisma });
+
+      await expect(
+        service.acceptInvitation('raw-token-abc123', MEMBER_ID),
+      ).resolves.toMatchObject({
+        id: GROUP_ID,
+      });
+    });
+
+    it('throws ConflictException when the user is already a group member', async () => {
+      const prisma = makePrisma();
+      prisma.groupMember.findUnique.mockResolvedValue({
+        id: 'membership-existing',
+      });
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.acceptInvitation('raw-token-abc123', MEMBER_ID),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.groupInvitation.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException for an unknown token', async () => {
+      const prisma = makePrisma();
+      prisma.groupInvitation.findUnique.mockResolvedValue(null);
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.acceptInvitation('missing-token', MEMBER_ID),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws GoneException for an expired invitation', async () => {
+      const prisma = makePrisma();
+      prisma.groupInvitation.findUnique.mockResolvedValue({
+        ...makeValidInvitationRecord(),
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.acceptInvitation('expired-token', MEMBER_ID),
+      ).rejects.toBeInstanceOf(GoneException);
+    });
+
+    it('throws ConflictException for an already-used invitation', async () => {
+      const prisma = makePrisma();
+      prisma.groupInvitation.findUnique.mockResolvedValue({
+        ...makeValidInvitationRecord(),
+        acceptedAt: new Date(),
+      });
+
+      const service = buildService({ prisma });
+
+      await expect(
+        service.acceptInvitation('used-token', MEMBER_ID),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

@@ -1,7 +1,13 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  GoneException,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { GroupMemberRole } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { validateEnvironment } from '../../src/common/config/environment.validation';
+import { SessionTokenService } from '../../src/modules/auth/services/session-token.service';
 import { PrismaService } from '../../src/modules/database/prisma.service';
 import { EmailService } from '../../src/modules/email/email.service';
 import { GroupInvitationService } from '../../src/modules/group/group-invitation.service';
@@ -15,6 +21,7 @@ describe('GroupInvitationService (integration)', () => {
   let prismaService: PrismaService;
   let groupService: GroupService;
   let invitationService: GroupInvitationService;
+  let sessionTokenService: SessionTokenService;
   let emailSend: jest.Mock;
 
   beforeAll(async () => {
@@ -44,6 +51,7 @@ describe('GroupInvitationService (integration)', () => {
     prismaService = moduleRef.get(PrismaService);
     groupService = moduleRef.get(GroupService);
     invitationService = moduleRef.get(GroupInvitationService);
+    sessionTokenService = moduleRef.get(SessionTokenService);
   });
 
   beforeEach(async () => {
@@ -74,6 +82,17 @@ describe('GroupInvitationService (integration)', () => {
     });
 
     return { leader, group };
+  }
+
+  function extractInvitationToken(): string {
+    const [options] = emailSend.mock.calls.at(-1) as [{ text?: string }];
+    const tokenMatch = options.text?.match(/token=([A-Za-z0-9_-]+)/);
+
+    if (tokenMatch === null || tokenMatch === undefined) {
+      throw new Error('Invitation email did not include a token.');
+    }
+
+    return tokenMatch[1];
   }
 
   it('creates an invitation and stores a hash (not the raw token)', async () => {
@@ -224,5 +243,137 @@ describe('GroupInvitationService (integration)', () => {
     });
     expect(persisted?.groupId).toBe(group.id);
     expect(persisted?.acceptedAt).toBeNull();
+  });
+
+  it('validates and accepts an invitation, creating a member atomically', async () => {
+    const { leader, group } = await createLeaderAndGroup();
+    const invitedUser = await prismaService.user.create({
+      data: {
+        email: 'alice@example.com',
+        passwordHash: 'placeholder-hash',
+        name: 'Invited User',
+      },
+    });
+
+    await invitationService.createInvitation(
+      group.id,
+      leader.id,
+      'ALICE@EXAMPLE.COM',
+    );
+    const token = extractInvitationToken();
+
+    await expect(
+      invitationService.validateInvitation(token),
+    ).resolves.toMatchObject({
+      groupId: group.id,
+      groupName: 'Family',
+      invitedEmail: 'alice@example.com',
+    });
+
+    const joinedGroup = await invitationService.acceptInvitation(
+      token,
+      invitedUser.id,
+    );
+
+    expect(joinedGroup.memberships).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: invitedUser.id,
+          role: GroupMemberRole.MEMBER,
+        }),
+      ]),
+    );
+
+    const membership = await prismaService.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId: group.id,
+          userId: invitedUser.id,
+        },
+      },
+    });
+    expect(membership).not.toBeNull();
+
+    const invitation = await prismaService.groupInvitation.findFirst({
+      where: { groupId: group.id, invitedEmail: 'alice@example.com' },
+    });
+    expect(invitation?.acceptedAt).not.toBeNull();
+  });
+
+  it('rejects acceptance when the authenticated user email does not match the invitation', async () => {
+    const { leader, group } = await createLeaderAndGroup();
+    const wrongUser = await prismaService.user.create({
+      data: {
+        email: 'wrong@example.com',
+        passwordHash: 'placeholder-hash',
+        name: 'Wrong User',
+      },
+    });
+
+    await invitationService.createInvitation(
+      group.id,
+      leader.id,
+      'alice@example.com',
+    );
+    const token = extractInvitationToken();
+
+    await expect(
+      invitationService.acceptInvitation(token, wrongUser.id),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects expired invitations for validation and acceptance', async () => {
+    const { group } = await createLeaderAndGroup();
+    const invitedUser = await prismaService.user.create({
+      data: {
+        email: 'alice@example.com',
+        passwordHash: 'placeholder-hash',
+        name: 'Invited User',
+      },
+    });
+
+    const token = 'expired-token';
+    await prismaService.groupInvitation.create({
+      data: {
+        groupId: group.id,
+        invitedEmail: 'alice@example.com',
+        tokenHash: sessionTokenService.hashToken(token),
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+
+    await expect(
+      invitationService.validateInvitation(token),
+    ).rejects.toBeInstanceOf(GoneException);
+    await expect(
+      invitationService.acceptInvitation(token, invitedUser.id),
+    ).rejects.toBeInstanceOf(GoneException);
+  });
+
+  it('rejects reusing an invitation after it has already been accepted', async () => {
+    const { leader, group } = await createLeaderAndGroup();
+    const invitedUser = await prismaService.user.create({
+      data: {
+        email: 'alice@example.com',
+        passwordHash: 'placeholder-hash',
+        name: 'Invited User',
+      },
+    });
+
+    await invitationService.createInvitation(
+      group.id,
+      leader.id,
+      'alice@example.com',
+    );
+    const token = extractInvitationToken();
+
+    await invitationService.acceptInvitation(token, invitedUser.id);
+
+    await expect(
+      invitationService.validateInvitation(token),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      invitationService.acceptInvitation(token, invitedUser.id),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
