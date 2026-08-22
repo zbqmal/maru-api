@@ -1,4 +1,4 @@
-import { Group, GroupMember, User } from '@prisma/client';
+import { Group, GroupMember, GroupQuestion, User } from '@prisma/client';
 
 type GroupMemberUserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 
@@ -12,3 +12,5 @@ export type GroupWithMemberships = Group & {
 
 export type GroupMemberUser =
   GroupWithMemberships['memberships'][number]['user'];
+
+export type GroupQuestionRecord = GroupQuestion;
