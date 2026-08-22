@@ -40,7 +40,10 @@ describe('GroupQuestionService', () => {
       service.listQuestionsForUser('group-1', 'user-1'),
     ).resolves.toEqual(questions);
 
-    expect(groupService.findByIdForUser).toHaveBeenCalledWith('group-1', 'user-1');
+    expect(groupService.findByIdForUser).toHaveBeenCalledWith(
+      'group-1',
+      'user-1',
+    );
     expect(prismaService.groupQuestion.findMany).toHaveBeenCalledWith({
       where: { groupId: 'group-1', isActive: true },
       orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],

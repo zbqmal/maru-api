@@ -155,7 +155,8 @@ export class GroupController {
     type: GroupQuestionResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Question content is invalid or the four-question limit was exceeded.',
+    description:
+      'Question content is invalid or the four-question limit was exceeded.',
   })
   @ApiForbiddenResponse({ description: 'Group leader role required.' })
   @ApiNotFoundResponse({ description: 'Group not found.' })
@@ -184,7 +185,8 @@ export class GroupController {
     isArray: true,
   })
   @ApiBadRequestResponse({
-    description: 'Reorder payload must contain each active group question exactly once.',
+    description:
+      'Reorder payload must contain each active group question exactly once.',
   })
   @ApiForbiddenResponse({ description: 'Group leader role required.' })
   @UseGuards(GroupLeaderGuard)

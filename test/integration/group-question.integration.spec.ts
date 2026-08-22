@@ -117,7 +117,12 @@ describe('GroupQuestionService (integration)', () => {
   it('enforces the maximum of four active custom questions', async () => {
     const { leader, group } = await createGroupFixture();
 
-    for (const question of ['Question 1', 'Question 2', 'Question 3', 'Question 4']) {
+    for (const question of [
+      'Question 1',
+      'Question 2',
+      'Question 3',
+      'Question 4',
+    ]) {
       await groupQuestionService.createQuestion(group.id, leader.id, {
         question,
       });
@@ -145,9 +150,13 @@ describe('GroupQuestionService (integration)', () => {
   it('reorders questions and persists the new display order', async () => {
     const { leader, group } = await createGroupFixture();
 
-    const first = await groupQuestionService.createQuestion(group.id, leader.id, {
-      question: 'First question',
-    });
+    const first = await groupQuestionService.createQuestion(
+      group.id,
+      leader.id,
+      {
+        question: 'First question',
+      },
+    );
     const second = await groupQuestionService.createQuestion(
       group.id,
       leader.id,
@@ -155,9 +164,13 @@ describe('GroupQuestionService (integration)', () => {
         question: 'Second question',
       },
     );
-    const third = await groupQuestionService.createQuestion(group.id, leader.id, {
-      question: 'Third question',
-    });
+    const third = await groupQuestionService.createQuestion(
+      group.id,
+      leader.id,
+      {
+        question: 'Third question',
+      },
+    );
 
     const reordered = await groupQuestionService.reorderQuestions(group.id, [
       third.id,
@@ -170,15 +183,21 @@ describe('GroupQuestionService (integration)', () => {
       first.id,
       second.id,
     ]);
-    expect(reordered.map((question) => question.displayOrder)).toEqual([1, 2, 3]);
+    expect(reordered.map((question) => question.displayOrder)).toEqual([
+      1, 2, 3,
+    ]);
   });
 
   it('deletes a question and closes the display-order gap', async () => {
     const { leader, group } = await createGroupFixture();
 
-    const first = await groupQuestionService.createQuestion(group.id, leader.id, {
-      question: 'First question',
-    });
+    const first = await groupQuestionService.createQuestion(
+      group.id,
+      leader.id,
+      {
+        question: 'First question',
+      },
+    );
     const second = await groupQuestionService.createQuestion(
       group.id,
       leader.id,
@@ -186,9 +205,13 @@ describe('GroupQuestionService (integration)', () => {
         question: 'Second question',
       },
     );
-    const third = await groupQuestionService.createQuestion(group.id, leader.id, {
-      question: 'Third question',
-    });
+    const third = await groupQuestionService.createQuestion(
+      group.id,
+      leader.id,
+      {
+        question: 'Third question',
+      },
+    );
 
     await groupQuestionService.deleteQuestion(group.id, second.id);
 
@@ -197,7 +220,10 @@ describe('GroupQuestionService (integration)', () => {
       leader.id,
     );
 
-    expect(remaining.map((question) => question.id)).toEqual([first.id, third.id]);
+    expect(remaining.map((question) => question.id)).toEqual([
+      first.id,
+      third.id,
+    ]);
     expect(remaining.map((question) => question.displayOrder)).toEqual([1, 2]);
   });
 });

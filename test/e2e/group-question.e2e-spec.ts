@@ -297,7 +297,12 @@ describe('GroupQuestionController (e2e)', () => {
 
     const groupId = await createGroupAsLeader(leader.sessionCookie);
 
-    for (const question of ['Question 1', 'Question 2', 'Question 3', 'Question 4']) {
+    for (const question of [
+      'Question 1',
+      'Question 2',
+      'Question 3',
+      'Question 4',
+    ]) {
       const response = await request(
         app.getHttpServer() as Parameters<typeof request>[0],
       )
@@ -342,7 +347,9 @@ describe('GroupQuestionController (e2e)', () => {
   it('rejects unauthenticated question management requests', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    const listResponse = await request(httpServer).get('/groups/group-1/questions');
+    const listResponse = await request(httpServer).get(
+      '/groups/group-1/questions',
+    );
     const createResponse = await request(httpServer)
       .post('/groups/group-1/questions')
       .send({ question: 'Question' });
