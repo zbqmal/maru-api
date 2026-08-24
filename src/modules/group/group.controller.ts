@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -25,19 +26,27 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
+import { CreateGroupQuestionDto } from './dto/create-group-question.dto';
 import {
   GroupMemberResponseDto,
   toGroupMemberResponseDto,
 } from './dto/group-member-response.dto';
 import {
+  GroupQuestionResponseDto,
+  toGroupQuestionResponseDto,
+} from './dto/group-question-response.dto';
+import {
   InvitationResponseDto,
   toInvitationResponseDto,
 } from './dto/invitation-response.dto';
+import { ReorderGroupQuestionsDto } from './dto/reorder-group-questions.dto';
 import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
 import { TransferLeadershipDto } from './dto/transfer-leadership.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
+import { UpdateGroupQuestionDto } from './dto/update-group-question.dto';
 import { GroupDeletionService } from './group-deletion.service';
 import { GroupInvitationService } from './group-invitation.service';
+import { GroupQuestionService } from './group-question.service';
 import { GroupLeaderGuard } from './guards/group-leader.guard';
 import { GroupMemberGuard } from './guards/group-member.guard';
 import { GroupService } from './group.service';
@@ -52,6 +61,7 @@ export class GroupController {
     private readonly groupService: GroupService,
     private readonly groupDeletionService: GroupDeletionService,
     private readonly groupInvitationService: GroupInvitationService,
+    private readonly groupQuestionService: GroupQuestionService,
   ) {}
 
   @ApiOperation({ summary: 'Create a group' })
@@ -116,6 +126,120 @@ export class GroupController {
       user.id,
     );
     return memberships.map(toGroupMemberResponseDto);
+  }
+
+  @ApiOperation({ summary: 'List group questions' })
+  @ApiOkResponse({
+    description: 'Active group questions in display order',
+    type: GroupQuestionResponseDto,
+    isArray: true,
+  })
+  @ApiForbiddenResponse({ description: 'Group membership required.' })
+  @ApiNotFoundResponse({ description: 'Group not found.' })
+  @Get(':groupId/questions')
+  async listQuestions(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+  ): Promise<GroupQuestionResponseDto[]> {
+    const questions = await this.groupQuestionService.listQuestionsForUser(
+      groupId,
+      user.id,
+    );
+
+    return questions.map(toGroupQuestionResponseDto);
+  }
+
+  @ApiOperation({ summary: 'Create a group question (leader only)' })
+  @ApiCreatedResponse({
+    description: 'Created group question.',
+    type: GroupQuestionResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Question content is invalid or the four-question limit was exceeded.',
+  })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Group not found.' })
+  @UseGuards(GroupLeaderGuard)
+  @Post(':groupId/questions')
+  async createQuestion(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateGroupQuestionDto,
+  ): Promise<GroupQuestionResponseDto> {
+    const question = await this.groupQuestionService.createQuestion(
+      groupId,
+      user.id,
+      {
+        question: dto.question,
+      },
+    );
+
+    return toGroupQuestionResponseDto(question);
+  }
+
+  @ApiOperation({ summary: 'Reorder group questions (leader only)' })
+  @ApiOkResponse({
+    description: 'Reordered group questions.',
+    type: GroupQuestionResponseDto,
+    isArray: true,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Reorder payload must contain each active group question exactly once.',
+  })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @UseGuards(GroupLeaderGuard)
+  @Patch(':groupId/questions/reorder')
+  async reorderQuestions(
+    @Param('groupId') groupId: string,
+    @Body() dto: ReorderGroupQuestionsDto,
+  ): Promise<GroupQuestionResponseDto[]> {
+    const questions = await this.groupQuestionService.reorderQuestions(
+      groupId,
+      dto.questionIds,
+    );
+
+    return questions.map(toGroupQuestionResponseDto);
+  }
+
+  @ApiOperation({ summary: 'Update a group question (leader only)' })
+  @ApiOkResponse({
+    description: 'Updated group question.',
+    type: GroupQuestionResponseDto,
+  })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Group question not found.' })
+  @UseGuards(GroupLeaderGuard)
+  @Patch(':groupId/questions/:questionId')
+  async updateQuestion(
+    @Param('groupId') groupId: string,
+    @Param('questionId') questionId: string,
+    @Body() dto: UpdateGroupQuestionDto,
+  ): Promise<GroupQuestionResponseDto> {
+    const question = await this.groupQuestionService.updateQuestion(
+      groupId,
+      questionId,
+      {
+        question: dto.question,
+      },
+    );
+
+    return toGroupQuestionResponseDto(question);
+  }
+
+  @ApiOperation({ summary: 'Delete a group question (leader only)' })
+  @ApiNoContentResponse({ description: 'Group question deleted successfully.' })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @ApiNotFoundResponse({ description: 'Group question not found.' })
+  @UseGuards(GroupLeaderGuard)
+  @HttpCode(204)
+  @Delete(':groupId/questions/:questionId')
+  async deleteQuestion(
+    @Param('groupId') groupId: string,
+    @Param('questionId') questionId: string,
+  ): Promise<void> {
+    await this.groupQuestionService.deleteQuestion(groupId, questionId);
   }
 
   @ApiOperation({ summary: 'Update a group (leader only)' })

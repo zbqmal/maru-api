@@ -254,6 +254,275 @@
         ]
       }
     },
+    "/groups/{groupId}/questions": {
+      "get": {
+        "operationId": "GroupController_listQuestions",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active group questions in display order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupQuestionResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          },
+          "404": {
+            "description": "Group not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List group questions",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "post": {
+        "operationId": "GroupController_createQuestion",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupQuestionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created group question.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupQuestionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Question content is invalid or the four-question limit was exceeded."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          },
+          "404": {
+            "description": "Group not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a group question (leader only)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/groups/{groupId}/questions/reorder": {
+      "patch": {
+        "operationId": "GroupController_reorderQuestions",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderGroupQuestionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reordered group questions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupQuestionResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Reorder payload must contain each active group question exactly once."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reorder group questions (leader only)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
+    "/groups/{groupId}/questions/{questionId}": {
+      "patch": {
+        "operationId": "GroupController_updateQuestion",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupQuestionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated group question.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupQuestionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          },
+          "404": {
+            "description": "Group question not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a group question (leader only)",
+        "tags": [
+          "Groups"
+        ]
+      },
+      "delete": {
+        "operationId": "GroupController_deleteQuestion",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Group question deleted successfully."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group leader role required."
+          },
+          "404": {
+            "description": "Group question not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a group question (leader only)",
+        "tags": [
+          "Groups"
+        ]
+      }
+    },
     "/groups/{groupId}/transfer-leadership": {
       "post": {
         "operationId": "GroupController_transferLeadership",
@@ -891,6 +1160,90 @@
           "updatedAt",
           "memberships"
         ]
+      },
+      "GroupQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdByUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "groupId",
+          "question",
+          "displayOrder",
+          "isActive",
+          "createdByUserId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateGroupQuestionDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Custom question content",
+            "example": "What made you smile today?",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "question"
+        ]
+      },
+      "ReorderGroupQuestionsDto": {
+        "type": "object",
+        "properties": {
+          "questionIds": {
+            "description": "Complete ordered list of group question IDs in their new display order",
+            "example": [
+              "cq_1",
+              "cq_2"
+            ],
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          }
+        },
+        "required": [
+          "questionIds"
+        ]
+      },
+      "UpdateGroupQuestionDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Updated custom question content",
+            "example": "What are you grateful for today?",
+            "maxLength": 200
+          }
+        }
       },
       "UpdateGroupDto": {
         "type": "object",

@@ -24,6 +24,7 @@ model User {
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   groupMemberships    GroupMember[]
+  createdGroupQuestions GroupQuestion[]
 
   @@map("users")
 }
@@ -35,6 +36,7 @@ model Group {
   updatedAt   DateTime          @updatedAt @map("updated_at")
   memberships GroupMember[]
   invitations GroupInvitation[]
+  groupQuestions GroupQuestion[]
 
   @@map("groups")
 }
@@ -101,4 +103,21 @@ model GroupInvitation {
   @@index([groupId, invitedEmail])
   @@index([expiresAt])
   @@map("group_invitations")
+}
+
+model GroupQuestion {
+  id              String   @id @default(cuid())
+  groupId         String   @map("group_id")
+  question        String   @db.VarChar(200)
+  displayOrder    Int      @map("display_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdByUser   User     @relation(fields: [createdByUserId], references: [id])
+
+  @@unique([groupId, displayOrder])
+  @@index([groupId, isActive])
+  @@map("group_questions")
 }
