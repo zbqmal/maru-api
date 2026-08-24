@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { GroupQuestionRecord } from '../../../lib/types/group.types';
+import { GroupQuestion } from '@prisma/client';
 
 export class GroupQuestionResponseDto {
   @ApiProperty()
@@ -28,7 +28,7 @@ export class GroupQuestionResponseDto {
 }
 
 export function toGroupQuestionResponseDto(
-  question: GroupQuestionRecord,
+  question: GroupQuestion,
 ): GroupQuestionResponseDto {
   return {
     id: question.id,

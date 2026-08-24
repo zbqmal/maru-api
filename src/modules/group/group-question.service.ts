@@ -3,8 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { GroupQuestionRecord } from '../../lib/types/group.types';
+import { GroupQuestion, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { GroupService } from './group.service';
 
@@ -29,7 +28,7 @@ export class GroupQuestionService {
   async listQuestionsForUser(
     groupId: string,
     userId: string,
-  ): Promise<GroupQuestionRecord[]> {
+  ): Promise<GroupQuestion[]> {
     await this.groupService.findByIdForUser(groupId, userId);
 
     return this.prismaService.groupQuestion.findMany({
@@ -42,7 +41,7 @@ export class GroupQuestionService {
     groupId: string,
     createdByUserId: string,
     input: CreateGroupQuestionInput,
-  ): Promise<GroupQuestionRecord> {
+  ): Promise<GroupQuestion> {
     return this.prismaService.$transaction(
       async (tx: Prisma.TransactionClient) => {
         await this.assertGroupExists(tx, groupId);
@@ -73,7 +72,7 @@ export class GroupQuestionService {
     groupId: string,
     questionId: string,
     input: UpdateGroupQuestionInput,
-  ): Promise<GroupQuestionRecord> {
+  ): Promise<GroupQuestion> {
     return this.prismaService.$transaction(
       async (tx: Prisma.TransactionClient) => {
         await this.findQuestionOrThrow(tx, groupId, questionId);
@@ -109,7 +108,7 @@ export class GroupQuestionService {
   async reorderQuestions(
     groupId: string,
     questionIds: string[],
-  ): Promise<GroupQuestionRecord[]> {
+  ): Promise<GroupQuestion[]> {
     return this.prismaService.$transaction(
       async (tx: Prisma.TransactionClient) => {
         const questions = await tx.groupQuestion.findMany({
@@ -177,7 +176,7 @@ export class GroupQuestionService {
     tx: Prisma.TransactionClient,
     groupId: string,
     questionId: string,
-  ): Promise<GroupQuestionRecord> {
+  ): Promise<GroupQuestion> {
     const question = await tx.groupQuestion.findFirst({
       where: {
         id: questionId,
