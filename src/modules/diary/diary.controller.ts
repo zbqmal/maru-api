@@ -1,5 +1,6 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiCookieAuth,
   ApiForbiddenResponse,
   ApiOkResponse,
@@ -16,6 +17,7 @@ import {
   DiaryContextResponseDto,
   toDiaryContextResponseDto,
 } from './dto/diary-context-response.dto';
+import { GetDiaryContextQueryDto } from './dto/get-diary-context-query.dto';
 
 @ApiTags('Diary')
 @ApiCookieAuth('session')
@@ -25,26 +27,33 @@ import {
 export class DiaryController {
   constructor(private readonly diaryEntryService: DiaryEntryService) {}
 
-  @ApiOperation({ summary: "Get today's diary context for a group" })
+  @ApiOperation({
+    summary: 'Get diary context for a given date',
+    description:
+      "Returns the group's active custom questions and the current user's diary entry (if any) for the specified date. The `date` parameter must be the caller's **local date** in `YYYY-MM-DD` format so that users in different timezones each see their own correct diary day.",
+  })
   @ApiOkResponse({
     description:
-      "Active group questions and the current user's diary entry (if any) for today.",
+      "Active group questions and the current user's diary entry (if any) for the given date.",
     type: DiaryContextResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'date must be a valid ISO 8601 date string (YYYY-MM-DD).',
   })
   @ApiForbiddenResponse({ description: 'Group membership required.' })
   @UseGuards(GroupMemberGuard)
-  @Get('today')
-  async getTodaysDiaryContext(
+  @Get('context')
+  async getDiaryContext(
     @CurrentUser() user: User,
     @Param('groupId') groupId: string,
+    @Query() query: GetDiaryContextQueryDto,
   ): Promise<DiaryContextResponseDto> {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const diaryDate = new Date(`${query.date}T00:00:00.000Z`);
 
     const context = await this.diaryEntryService.getTodaysDiaryContext(
       groupId,
       user.id,
-      today,
+      diaryDate,
     );
 
     return toDiaryContextResponseDto(context.questions, context.entry);

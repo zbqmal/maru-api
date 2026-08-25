@@ -11,6 +11,8 @@ describe('DiaryController (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
 
+  const TEST_DATE = '2026-08-26';
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -95,14 +97,15 @@ describe('DiaryController (e2e)', () => {
     return (response.body as { id: string }).id;
   }
 
-  it('returns empty questions and null entry when user has no diary entry for today', async () => {
+  it('returns empty questions and null entry when user has no diary entry for the given date', async () => {
     const leader = await registerAndLogin('diary-no-entry@example.com');
     const groupId = await createGroupAsLeader(leader.sessionCookie);
 
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .get(`/groups/${groupId}/diary/today`)
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
       .set('Cookie', leader.sessionCookie);
 
     expect(response.status).toBe(200);
@@ -124,7 +127,8 @@ describe('DiaryController (e2e)', () => {
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .get(`/groups/${groupId}/diary/today`)
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
       .set('Cookie', leader.sessionCookie);
 
     expect(response.status).toBe(200);
@@ -138,7 +142,7 @@ describe('DiaryController (e2e)', () => {
     expect(body.entry).toBeNull();
   });
 
-  it('returns entry with answers when current user has a diary entry for today', async () => {
+  it('returns entry with answers when current user has a diary entry for the given date', async () => {
     const leader = await registerAndLogin('diary-with-entry@example.com');
     const groupId = await createGroupAsLeader(leader.sessionCookie);
 
@@ -151,14 +155,13 @@ describe('DiaryController (e2e)', () => {
 
     const questionId = (questionRes.body as { id: string }).id;
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const diaryDate = new Date(`${TEST_DATE}T00:00:00.000Z`);
 
     const entry = await prismaService.diaryEntry.create({
       data: {
         groupId,
         userId: leader.userId,
-        diaryDate: today,
+        diaryDate,
       },
     });
 
@@ -174,7 +177,8 @@ describe('DiaryController (e2e)', () => {
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .get(`/groups/${groupId}/diary/today`)
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
       .set('Cookie', leader.sessionCookie);
 
     expect(response.status).toBe(200);
@@ -194,10 +198,67 @@ describe('DiaryController (e2e)', () => {
     expect(body.entry.answers[0].groupQuestionId).toBe(questionId);
   });
 
+  it('returns entry only for the specific date provided, not another date', async () => {
+    const leader = await registerAndLogin('diary-date-isolation@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const otherDate = new Date('2026-08-25T00:00:00.000Z');
+    const otherEntry = await prismaService.diaryEntry.create({
+      data: { groupId, userId: leader.userId, diaryDate: otherDate },
+    });
+    await prismaService.answer.create({
+      data: {
+        diaryEntryId: otherEntry.id,
+        questionType: 'CUSTOM',
+        groupQuestionId: null,
+        body: 'Yesterday answer',
+      },
+    });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(200);
+    expect((response.body as { entry: null }).entry).toBeNull();
+  });
+
+  it('returns 400 when date query param is missing', async () => {
+    const leader = await registerAndLogin('diary-missing-date@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/context`)
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 400 when date query param is not a valid date string', async () => {
+    const leader = await registerAndLogin('diary-bad-date@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: 'not-a-date' })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(400);
+  });
+
   it('returns 401 when unauthenticated', async () => {
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
-    ).get('/groups/some-group-id/diary/today');
+    )
+      .get('/groups/some-group-id/diary/context')
+      .query({ date: TEST_DATE });
 
     expect(response.status).toBe(401);
   });
@@ -213,7 +274,8 @@ describe('DiaryController (e2e)', () => {
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .get(`/groups/${groupId}/diary/today`)
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
       .set('Cookie', nonMember.sessionCookie);
 
     expect(response.status).toBe(403);
@@ -227,11 +289,6 @@ describe('DiaryController (e2e)', () => {
 
     const groupId = await createGroupAsLeader(leader.sessionCookie);
 
-    await request(app.getHttpServer() as Parameters<typeof request>[0])
-      .post(`/groups/${groupId}/invitations`)
-      .set('Cookie', leader.sessionCookie)
-      .send({ email: 'diary-isolation-member@example.com' });
-
     const inv = await prismaService.groupInvitation.findFirst({
       where: { groupId },
     });
@@ -244,11 +301,9 @@ describe('DiaryController (e2e)', () => {
       await prismaService.groupInvitation.delete({ where: { id: inv.id } });
     }
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
+    const diaryDate = new Date(`${TEST_DATE}T00:00:00.000Z`);
     const memberEntry = await prismaService.diaryEntry.create({
-      data: { groupId, userId: member.userId, diaryDate: today },
+      data: { groupId, userId: member.userId, diaryDate },
     });
 
     await prismaService.answer.create({
@@ -263,7 +318,8 @@ describe('DiaryController (e2e)', () => {
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .get(`/groups/${groupId}/diary/today`)
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
       .set('Cookie', leader.sessionCookie);
 
     expect(response.status).toBe(200);
