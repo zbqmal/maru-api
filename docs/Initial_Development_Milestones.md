@@ -471,6 +471,7 @@ Suggested `answers` fields:
 - question_type
 - group_question_id nullable
 - daily_question_id nullable
+- question_snapshot (copy of question text at answer creation time, for historical accuracy)
 - content
 - created_at
 - updated_at
@@ -485,6 +486,7 @@ Implement:
 - Get today's diary context.
 - Get current user's answers.
 - Create/update an answer.
+- Snapshot the question text at answer creation time for historical accuracy.
 - Get group members' entries for the selected date.
 - Enforce group membership.
 - Enforce diary ownership for answer modification.
