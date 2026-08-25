@@ -18,6 +18,9 @@ export class AnswerResponseDto {
   body!: string;
 
   @ApiProperty()
+  questionSnapshot!: string;
+
+  @ApiProperty()
   createdAt!: string;
 
   @ApiProperty()
@@ -31,6 +34,7 @@ export function toAnswerResponseDto(answer: Answer): AnswerResponseDto {
     questionType: answer.questionType,
     groupQuestionId: answer.groupQuestionId,
     body: answer.body,
+    questionSnapshot: answer.questionSnapshot,
     createdAt: answer.createdAt.toISOString(),
     updatedAt: answer.updatedAt.toISOString(),
   };

@@ -170,6 +170,7 @@ describe('DiaryController (e2e)', () => {
         diaryEntryId: entry.id,
         questionType: 'CUSTOM',
         groupQuestionId: questionId,
+        questionSnapshot: 'How are you?',
         body: 'Doing great!',
       },
     });
@@ -188,7 +189,11 @@ describe('DiaryController (e2e)', () => {
       entry: {
         id: string;
         diaryDate: string;
-        answers: { body: string; groupQuestionId: string }[];
+        answers: {
+          body: string;
+          groupQuestionId: string;
+          questionSnapshot: string;
+        }[];
       };
     };
     expect(body.entry).not.toBeNull();
@@ -196,6 +201,7 @@ describe('DiaryController (e2e)', () => {
     expect(body.entry.answers).toHaveLength(1);
     expect(body.entry.answers[0].body).toBe('Doing great!');
     expect(body.entry.answers[0].groupQuestionId).toBe(questionId);
+    expect(body.entry.answers[0].questionSnapshot).toBe('How are you?');
   });
 
   it('returns entry only for the specific date provided, not another date', async () => {
@@ -211,6 +217,7 @@ describe('DiaryController (e2e)', () => {
         diaryEntryId: otherEntry.id,
         questionType: 'CUSTOM',
         groupQuestionId: null,
+        questionSnapshot: 'Yesterday question',
         body: 'Yesterday answer',
       },
     });
@@ -311,6 +318,7 @@ describe('DiaryController (e2e)', () => {
         diaryEntryId: memberEntry.id,
         questionType: 'CUSTOM',
         groupQuestionId: null,
+        questionSnapshot: 'Private question',
         body: "Member's private answer",
       },
     });

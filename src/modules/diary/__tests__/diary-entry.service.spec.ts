@@ -193,6 +193,7 @@ describe('DiaryEntryService', () => {
         diaryEntryId: 'entry-1',
         questionType: QuestionType.CUSTOM,
         groupQuestionId: 'question-1',
+        questionSnapshot: 'What made you smile today?',
         body: 'Felt great!',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -205,6 +206,7 @@ describe('DiaryEntryService', () => {
       });
       tx.groupQuestion.findFirst.mockResolvedValue({
         id: 'question-1',
+        question: 'What made you smile today?',
       });
       tx.answer.findUnique.mockResolvedValue(null);
       tx.answer.create.mockResolvedValue(createdAnswer);
@@ -228,6 +230,7 @@ describe('DiaryEntryService', () => {
           diaryEntryId: 'entry-1',
           questionType: QuestionType.CUSTOM,
           groupQuestionId: 'question-1',
+          questionSnapshot: 'What made you smile today?',
           body: 'Felt great!',
         },
       });
@@ -287,6 +290,7 @@ describe('DiaryEntryService', () => {
       });
       tx.groupQuestion.findFirst.mockResolvedValue({
         id: 'question-1',
+        question: 'What made you smile today?',
       });
       tx.answer.findUnique.mockResolvedValue({ id: 'answer-1' });
 
@@ -336,6 +340,7 @@ describe('DiaryEntryService', () => {
       const existing = {
         id: 'answer-1',
         diaryEntryId: 'entry-1',
+        questionSnapshot: 'Original question',
         body: 'Old body',
       };
       const updated = { ...existing, body: 'New body' };
@@ -352,6 +357,7 @@ describe('DiaryEntryService', () => {
         where: { id: 'answer-1' },
         data: { body: 'New body' },
       });
+      expect(updated.questionSnapshot).toBe('Original question');
     });
 
     it('throws NotFoundException when answer does not exist', async () => {
@@ -444,6 +450,7 @@ describe('DiaryEntryService', () => {
             diaryEntryId: 'entry-1',
             questionType: 'CUSTOM',
             groupQuestionId: 'q1',
+            questionSnapshot: 'Q1',
             body: 'My answer',
             createdAt: new Date(),
             updatedAt: new Date(),

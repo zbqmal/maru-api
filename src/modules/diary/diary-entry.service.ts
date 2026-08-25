@@ -94,6 +94,8 @@ export class DiaryEntryService {
           throw new NotFoundException('Diary entry not found.');
         }
 
+        let questionSnapshot = '';
+
         if (input.questionType === QuestionType.CUSTOM) {
           if (!input.groupQuestionId) {
             throw new BadRequestException(
@@ -101,11 +103,12 @@ export class DiaryEntryService {
             );
           }
 
-          await this.assertGroupQuestionBelongsToGroup(
+          const groupQuestion = await this.findGroupQuestionBelongingToGroup(
             tx,
             input.groupQuestionId,
             entry.groupId,
           );
+          questionSnapshot = groupQuestion.question;
         }
 
         const duplicate = await tx.answer.findUnique({
@@ -128,6 +131,7 @@ export class DiaryEntryService {
             diaryEntryId: input.diaryEntryId,
             questionType: input.questionType,
             groupQuestionId: input.groupQuestionId ?? null,
+            questionSnapshot,
             body: input.body,
           },
         });
@@ -216,14 +220,14 @@ export class DiaryEntryService {
     }
   }
 
-  private async assertGroupQuestionBelongsToGroup(
+  private async findGroupQuestionBelongingToGroup(
     tx: Prisma.TransactionClient,
     groupQuestionId: string,
     groupId: string,
-  ): Promise<void> {
+  ): Promise<{ id: string; question: string }> {
     const question = await tx.groupQuestion.findFirst({
       where: { id: groupQuestionId, groupId },
-      select: { id: true },
+      select: { id: true, question: true },
     });
 
     if (!question) {
@@ -231,5 +235,7 @@ export class DiaryEntryService {
         'Group question not found or does not belong to this group.',
       );
     }
+
+    return question;
   }
 }
