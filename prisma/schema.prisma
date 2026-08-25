@@ -25,6 +25,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   groupMemberships    GroupMember[]
   createdGroupQuestions GroupQuestion[]
+  diaryEntries        DiaryEntry[]
 
   @@map("users")
 }
@@ -37,6 +38,7 @@ model Group {
   memberships GroupMember[]
   invitations GroupInvitation[]
   groupQuestions GroupQuestion[]
+  diaryEntries   DiaryEntry[]
 
   @@map("groups")
 }
@@ -116,8 +118,47 @@ model GroupQuestion {
   updatedAt       DateTime @updatedAt @map("updated_at")
   group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdByUser   User     @relation(fields: [createdByUserId], references: [id])
+  answers         Answer[]
 
   @@unique([groupId, displayOrder])
   @@index([groupId, isActive])
   @@map("group_questions")
+}
+
+enum QuestionType {
+  CUSTOM
+  DAILY
+}
+
+model DiaryEntry {
+  id        String   @id @default(cuid())
+  groupId   String   @map("group_id")
+  userId    String   @map("user_id")
+  diaryDate DateTime @map("diary_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers   Answer[]
+
+  @@unique([groupId, userId, diaryDate])
+  @@index([groupId, diaryDate])
+  @@index([userId, diaryDate])
+  @@map("diary_entries")
+}
+
+model Answer {
+  id              String       @id @default(cuid())
+  diaryEntryId    String       @map("diary_entry_id")
+  questionType    QuestionType @map("question_type")
+  groupQuestionId String?      @map("group_question_id")
+  body            String       @db.VarChar(2000)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  diaryEntry      DiaryEntry   @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
+  groupQuestion   GroupQuestion? @relation(fields: [groupQuestionId], references: [id])
+
+  @@unique([diaryEntryId, groupQuestionId])
+  @@index([diaryEntryId])
+  @@map("answers")
 }
