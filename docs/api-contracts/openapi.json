@@ -1043,6 +1043,48 @@
           "Profile"
         ]
       }
+    },
+    "/groups/{groupId}/diary/today": {
+      "get": {
+        "operationId": "DiaryController_getTodaysDiaryContext",
+        "summary": "Get today's diary context for a group",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active group questions and the current user's diary entry (if any) for today.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiaryContextResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          }
+        },
+        "tags": [
+          "Diary"
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -1560,6 +1602,100 @@
         },
         "required": [
           "birthday"
+        ]
+      },
+      "AnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "diaryEntryId": {
+            "type": "string"
+          },
+          "questionType": {
+            "type": "string",
+            "enum": [
+              "CUSTOM",
+              "DAILY"
+            ]
+          },
+          "groupQuestionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "diaryEntryId",
+          "questionType",
+          "groupQuestionId",
+          "body",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "DiaryEntryContextDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "diaryDate": {
+            "type": "string",
+            "description": "ISO-8601 date string (date only)"
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnswerResponseDto"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "diaryDate",
+          "answers",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "DiaryContextResponseDto": {
+        "type": "object",
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupQuestionResponseDto"
+            }
+          },
+          "entry": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiaryEntryContextDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "questions",
+          "entry"
         ]
       }
     }

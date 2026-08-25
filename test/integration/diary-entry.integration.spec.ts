@@ -327,4 +327,101 @@ describe('DiaryEntryService (integration)', () => {
     });
     expect(answerCount).toBe(0);
   });
+
+  // ──────────────────────────────────────────────
+  // getTodaysDiaryContext
+  // ──────────────────────────────────────────────
+
+  describe('getTodaysDiaryContext', () => {
+    it('returns active questions and null entry when no diary entry exists', async () => {
+      const { leader, group, question, diaryDate } = await createFixture();
+
+      const context = await diaryEntryService.getTodaysDiaryContext(
+        group.id,
+        leader.id,
+        diaryDate,
+      );
+
+      expect(context.questions).toHaveLength(1);
+      expect(context.questions[0].id).toBe(question.id);
+      expect(context.entry).toBeNull();
+    });
+
+    it('returns entry with answers when entry exists', async () => {
+      const { leader, group, question, diaryDate } = await createFixture();
+
+      const entry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate,
+      });
+
+      await diaryEntryService.createAnswer({
+        diaryEntryId: entry.id,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: question.id,
+        body: 'Today went well',
+      });
+
+      const context = await diaryEntryService.getTodaysDiaryContext(
+        group.id,
+        leader.id,
+        diaryDate,
+      );
+
+      expect(context.entry).not.toBeNull();
+      expect(context.entry!.id).toBe(entry.id);
+      expect(context.entry!.answers).toHaveLength(1);
+      expect(context.entry!.answers[0].body).toBe('Today went well');
+    });
+
+    it('returns only active questions', async () => {
+      const { leader, group, diaryDate } = await createFixture();
+
+      const inactive = await prismaService.groupQuestion.create({
+        data: {
+          groupId: group.id,
+          question: 'Inactive question',
+          displayOrder: 2,
+          isActive: false,
+          createdByUserId: leader.id,
+        },
+      });
+
+      const context = await diaryEntryService.getTodaysDiaryContext(
+        group.id,
+        leader.id,
+        diaryDate,
+      );
+
+      const ids = context.questions.map((q) => q.id);
+      expect(ids).not.toContain(inactive.id);
+    });
+
+    it("does not return another member's entry", async () => {
+      const { leader, member, group, question, diaryDate } =
+        await createFixture();
+
+      const memberEntry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: member.id,
+        diaryDate,
+      });
+
+      await diaryEntryService.createAnswer({
+        diaryEntryId: memberEntry.id,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: question.id,
+        body: "Member's answer",
+      });
+
+      const context = await diaryEntryService.getTodaysDiaryContext(
+        group.id,
+        leader.id,
+        diaryDate,
+      );
+
+      expect(context.entry).toBeNull();
+    });
+  });
 });
