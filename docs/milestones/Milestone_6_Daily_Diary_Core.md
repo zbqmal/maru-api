@@ -44,7 +44,7 @@
 - Populate the snapshot at answer creation time with the current `GroupQuestion.question` text.
 - The snapshot is immutable after creation: answer update operations must not overwrite it.
 - When rendering historical diary entries, prefer the snapshot over the live question text so that past records remain accurate even if the question is later edited or deleted.
-- Update `GroupQuestionService.deleteQuestion` to use soft-delete (`isActive = false`) instead of a hard delete, so that `Answer.groupQuestionId` foreign keys are preserved for records created before the question was removed.
+- Change `Answer.groupQuestion` relation to `onDelete: SetNull` so that hard-deleting a `GroupQuestion` nullifies `Answer.groupQuestionId` without removing the answer itself. The `questionSnapshot` preserves the original question text for those orphaned answers.
 - Add a Prisma migration.
 - Update `AnswerResponseDto` to include `questionSnapshot`.
-- Add unit, integration, and invariant tests covering: snapshot is set on create, snapshot is unchanged after answer update, historical answers still resolve their snapshot after the source question is edited.
+- Add unit, integration, and invariant tests covering: snapshot is set on create, snapshot is unchanged after answer update, historical answers still resolve their snapshot after the source question is edited or deleted.
