@@ -4,7 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Answer, DiaryEntry, Prisma, QuestionType } from '@prisma/client';
+import {
+  Answer,
+  DiaryEntry,
+  GroupQuestion,
+  Prisma,
+  QuestionType,
+} from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
 export interface CreateDiaryEntryInput {
@@ -22,6 +28,11 @@ export interface CreateAnswerInput {
 
 export interface UpdateAnswerInput {
   body: string;
+}
+
+export interface DiaryContext {
+  questions: GroupQuestion[];
+  entry: (DiaryEntry & { answers: Answer[] }) | null;
 }
 
 @Injectable()
@@ -150,6 +161,31 @@ export class DiaryEntryService {
       where: { groupId, diaryDate },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  async getTodaysDiaryContext(
+    groupId: string,
+    userId: string,
+    date: Date,
+  ): Promise<DiaryContext> {
+    const [questions, entry] = await Promise.all([
+      this.prismaService.groupQuestion.findMany({
+        where: { groupId, isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+      }),
+      this.prismaService.diaryEntry.findUnique({
+        where: {
+          groupId_userId_diaryDate: {
+            groupId,
+            userId,
+            diaryDate: date,
+          },
+        },
+        include: { answers: { orderBy: { createdAt: 'asc' } } },
+      }),
+    ]);
+
+    return { questions, entry };
   }
 
   private async assertGroupExists(

@@ -37,3 +37,14 @@
 - Avoid N+1 query patterns.
 - Add membership/privacy tests.
 - Add integration tests for multi-member diary data.
+
+## PR 5 — Question Snapshot on Answer
+
+- Add `questionSnapshot` (`VARCHAR(200)`) column to `answers`.
+- Populate the snapshot at answer creation time with the current `GroupQuestion.question` text.
+- The snapshot is immutable after creation: answer update operations must not overwrite it.
+- When rendering historical diary entries, prefer the snapshot over the live question text so that past records remain accurate even if the question is later edited or deleted.
+- Change `Answer.groupQuestion` relation to `onDelete: SetNull` so that hard-deleting a `GroupQuestion` nullifies `Answer.groupQuestionId` without removing the answer itself. The `questionSnapshot` preserves the original question text for those orphaned answers.
+- Add a Prisma migration.
+- Update `AnswerResponseDto` to include `questionSnapshot`.
+- Add unit, integration, and invariant tests covering: snapshot is set on create, snapshot is unchanged after answer update, historical answers still resolve their snapshot after the source question is edited or deleted.

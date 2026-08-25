@@ -32,6 +32,9 @@ describe('DiaryEntryService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    groupQuestion: {
+      findMany: jest.fn(),
+    },
   };
 
   function makeService() {
@@ -380,6 +383,101 @@ describe('DiaryEntryService', () => {
         where: { groupId: 'group-1', diaryDate: date },
         orderBy: { createdAt: 'asc' },
       });
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // getTodaysDiaryContext
+  // ──────────────────────────────────────────────
+
+  describe('getTodaysDiaryContext', () => {
+    const date = new Date('2024-06-01');
+
+    it('returns questions and null entry when no diary entry exists', async () => {
+      const questions = [
+        { id: 'q1', groupId: 'group-1', question: 'Q1', displayOrder: 1 },
+      ];
+
+      prismaService.groupQuestion.findMany.mockResolvedValue(questions);
+      prismaService.diaryEntry.findUnique.mockResolvedValue(null);
+
+      const service = makeService();
+      const result = await service.getTodaysDiaryContext(
+        'group-1',
+        'user-1',
+        date,
+      );
+
+      expect(result.questions).toEqual(questions);
+      expect(result.entry).toBeNull();
+
+      expect(prismaService.groupQuestion.findMany).toHaveBeenCalledWith({
+        where: { groupId: 'group-1', isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+      });
+      expect(prismaService.diaryEntry.findUnique).toHaveBeenCalledWith({
+        where: {
+          groupId_userId_diaryDate: {
+            groupId: 'group-1',
+            userId: 'user-1',
+            diaryDate: date,
+          },
+        },
+        include: { answers: { orderBy: { createdAt: 'asc' } } },
+      });
+    });
+
+    it('returns questions and existing entry with answers', async () => {
+      const questions = [
+        { id: 'q1', groupId: 'group-1', question: 'Q1', displayOrder: 1 },
+      ];
+      const entry = {
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        diaryDate: date,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        answers: [
+          {
+            id: 'a1',
+            diaryEntryId: 'entry-1',
+            questionType: 'CUSTOM',
+            groupQuestionId: 'q1',
+            body: 'My answer',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      };
+
+      prismaService.groupQuestion.findMany.mockResolvedValue(questions);
+      prismaService.diaryEntry.findUnique.mockResolvedValue(entry);
+
+      const service = makeService();
+      const result = await service.getTodaysDiaryContext(
+        'group-1',
+        'user-1',
+        date,
+      );
+
+      expect(result.questions).toEqual(questions);
+      expect(result.entry).toEqual(entry);
+    });
+
+    it('returns empty questions array when group has no active questions', async () => {
+      prismaService.groupQuestion.findMany.mockResolvedValue([]);
+      prismaService.diaryEntry.findUnique.mockResolvedValue(null);
+
+      const service = makeService();
+      const result = await service.getTodaysDiaryContext(
+        'group-1',
+        'user-1',
+        date,
+      );
+
+      expect(result.questions).toEqual([]);
+      expect(result.entry).toBeNull();
     });
   });
 });
