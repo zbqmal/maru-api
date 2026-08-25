@@ -4,11 +4,12 @@ import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { DatabaseModule } from '../database/database.module';
 import { GroupModule } from '../group/group.module';
 import { GroupMemberGuard } from '../group/guards/group-member.guard';
+import { UserModule } from '../user/user.module';
 import { DiaryController } from './diary.controller';
 import { DiaryEntryService } from './diary-entry.service';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, GroupModule],
+  imports: [DatabaseModule, AuthModule, UserModule, GroupModule],
   controllers: [DiaryController],
   providers: [DiaryEntryService, SessionAuthGuard, GroupMemberGuard],
   exports: [DiaryEntryService],
