@@ -360,7 +360,8 @@ describe('DiaryEntryService (integration)', () => {
     });
 
     it('forbids updating another member’s answer via ownership-aware update', async () => {
-      const { leader, member, group, question, diaryDate } = await createFixture();
+      const { leader, member, group, question, diaryDate } =
+        await createFixture();
 
       const memberEntry = await diaryEntryService.findOrCreateEntry({
         groupId: group.id,

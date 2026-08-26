@@ -244,8 +244,13 @@ export class DiaryEntryService {
       throw new NotFoundException('Answer not found.');
     }
 
-    if (answer.diaryEntry.groupId !== groupId || answer.diaryEntry.userId !== userId) {
-      throw new ForbiddenException('You can only update your own diary answers.');
+    if (
+      answer.diaryEntry.groupId !== groupId ||
+      answer.diaryEntry.userId !== userId
+    ) {
+      throw new ForbiddenException(
+        'You can only update your own diary answers.',
+      );
     }
 
     return this.prismaService.answer.update({

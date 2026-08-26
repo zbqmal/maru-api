@@ -339,7 +339,9 @@ describe('DiaryController (e2e)', () => {
 
     expect(contextResponse.status).toBe(200);
     const entry = (
-      contextResponse.body as { entry: { answers: Array<{ id: string }> } | null }
+      contextResponse.body as {
+        entry: { answers: Array<{ id: string }> } | null;
+      }
     ).entry;
     expect(entry).not.toBeNull();
     expect(entry!.answers).toHaveLength(1);
@@ -361,7 +363,9 @@ describe('DiaryController (e2e)', () => {
       body: 'Good day.',
     };
 
-    const first = await request(app.getHttpServer() as Parameters<typeof request>[0])
+    const first = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
       .post(`/groups/${groupId}/diary/answers`)
       .set('Cookie', leader.sessionCookie)
       .send(payload);
@@ -415,7 +419,9 @@ describe('DiaryController (e2e)', () => {
       .set('Cookie', leader.sessionCookie)
       .send({ body: 'Updated by owner' });
     expect(ownerUpdate.status).toBe(200);
-    expect((ownerUpdate.body as { body: string }).body).toBe('Updated by owner');
+    expect((ownerUpdate.body as { body: string }).body).toBe(
+      'Updated by owner',
+    );
 
     const nonOwnerUpdate = await request(
       app.getHttpServer() as Parameters<typeof request>[0],

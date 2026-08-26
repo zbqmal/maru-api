@@ -1100,6 +1100,131 @@
           "Diary"
         ]
       }
+    },
+    "/groups/{groupId}/diary/answers": {
+      "post": {
+        "description": "Creates the caller’s answer for a custom question on the given date. If the user has no diary entry for that date yet, one is created automatically.",
+        "operationId": "DiaryController_createAnswer",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAnswerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Diary answer created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request payload is invalid or an unsupported question type was provided."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          },
+          "404": {
+            "description": "Group question not found or does not belong to this group."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create a diary answer for a given date",
+        "tags": [
+          "Diary"
+        ]
+      }
+    },
+    "/groups/{groupId}/diary/answers/{answerId}": {
+      "patch": {
+        "operationId": "DiaryController_updateAnswer",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "answerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAnswerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Diary answer updated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request payload is invalid."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required or diary ownership is violated."
+          },
+          "404": {
+            "description": "Answer not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update an existing diary answer",
+        "tags": [
+          "Diary"
+        ]
+      }
     }
   },
   "info": {
@@ -1714,6 +1839,56 @@
         },
         "required": [
           "questions"
+        ]
+      },
+      "CreateAnswerDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The diary date in the user's local timezone (YYYY-MM-DD).",
+            "example": "2026-08-26",
+            "format": "date"
+          },
+          "questionType": {
+            "type": "string",
+            "enum": [
+              "CUSTOM",
+              "DAILY"
+            ],
+            "description": "Question type. For this milestone, use CUSTOM.",
+            "example": "CUSTOM"
+          },
+          "groupQuestionId": {
+            "type": "string",
+            "description": "Group custom question id. Required for CUSTOM question type.",
+            "nullable": true
+          },
+          "body": {
+            "type": "string",
+            "description": "Answer text",
+            "maxLength": 2000,
+            "example": "Today I enjoyed dinner with my family."
+          }
+        },
+        "required": [
+          "date",
+          "questionType",
+          "body"
+        ]
+      },
+      "UpdateAnswerDto": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Updated answer text",
+            "maxLength": 2000,
+            "example": "Edited answer text."
+          }
+        },
+        "required": [
+          "body"
         ]
       }
     }
