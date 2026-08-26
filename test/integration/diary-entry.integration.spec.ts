@@ -587,4 +587,140 @@ describe('DiaryEntryService (integration)', () => {
       expect(context.entry).toBeNull();
     });
   });
+
+  // ──────────────────────────────────────────────
+  // getGroupDailyFeed
+  // ──────────────────────────────────────────────
+
+  describe('getGroupDailyFeed', () => {
+    it('returns every member paired with their entry — member with no entry gets null', async () => {
+      const { leader, member, group, question, diaryDate } =
+        await createFixture();
+
+      const leaderEntry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate,
+      });
+      await diaryEntryService.createAnswer({
+        diaryEntryId: leaderEntry.id,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: question.id,
+        body: "Leader's answer",
+      });
+
+      const feed = await diaryEntryService.getGroupDailyFeed(
+        group.id,
+        diaryDate,
+      );
+
+      expect(feed).toHaveLength(2);
+
+      const leaderRow = feed.find((r) => r.userId === leader.id);
+      const memberRow = feed.find((r) => r.userId === member.id);
+
+      expect(leaderRow?.entry).not.toBeNull();
+      expect(leaderRow?.entry?.answers).toHaveLength(1);
+      expect(leaderRow?.entry?.answers[0].body).toBe("Leader's answer");
+      expect(memberRow?.entry).toBeNull();
+    });
+
+    it('returns entries with answers for all members that have written', async () => {
+      const { leader, member, group, question, diaryDate } =
+        await createFixture();
+
+      const leaderEntry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate,
+      });
+      await diaryEntryService.createAnswer({
+        diaryEntryId: leaderEntry.id,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: question.id,
+        body: 'Leader answer',
+      });
+
+      const memberEntry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: member.id,
+        diaryDate,
+      });
+      await diaryEntryService.createAnswer({
+        diaryEntryId: memberEntry.id,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: question.id,
+        body: 'Member answer',
+      });
+
+      const feed = await diaryEntryService.getGroupDailyFeed(
+        group.id,
+        diaryDate,
+      );
+
+      expect(feed).toHaveLength(2);
+      expect(feed.every((r) => r.entry !== null)).toBe(true);
+    });
+
+    it('does not include entries from a different date', async () => {
+      const { leader, group, diaryDate } = await createFixture();
+
+      const otherDate = new Date('2024-06-02T00:00:00.000Z');
+      await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate: otherDate,
+      });
+
+      const feed = await diaryEntryService.getGroupDailyFeed(
+        group.id,
+        diaryDate,
+      );
+
+      expect(feed.every((r) => r.entry === null)).toBe(true);
+    });
+
+    it('does not include members or entries from another group', async () => {
+      const { leader, group, diaryDate } = await createFixture();
+
+      const otherGroup = await groupService.createGroupWithLeader({
+        name: 'Other Group',
+        leaderUserId: leader.id,
+      });
+
+      const otherEntry = await diaryEntryService.findOrCreateEntry({
+        groupId: otherGroup.id,
+        userId: leader.id,
+        diaryDate,
+      });
+      expect(otherEntry).toBeDefined();
+
+      const feed = await diaryEntryService.getGroupDailyFeed(
+        group.id,
+        diaryDate,
+      );
+
+      // All entries in feed belong to the queried group only
+      feed.forEach((r) => {
+        if (r.entry) {
+          expect(r.entry.id).not.toBe(otherEntry.id);
+        }
+      });
+    });
+
+    it('includes user info on each feed row', async () => {
+      const { leader, group, diaryDate } = await createFixture();
+
+      const feed = await diaryEntryService.getGroupDailyFeed(
+        group.id,
+        diaryDate,
+      );
+
+      const leaderRow = feed.find((r) => r.userId === leader.id);
+      expect(leaderRow?.user).toMatchObject({
+        id: leader.id,
+        name: leader.name,
+      });
+    });
+  });
 });

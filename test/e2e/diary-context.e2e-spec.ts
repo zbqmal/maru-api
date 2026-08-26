@@ -478,4 +478,160 @@ describe('DiaryController (e2e)', () => {
     const body = response.body as { entry: null };
     expect(body.entry).toBeNull();
   });
+
+  // ────────────────────────────────────────────────────────────
+  // GET /groups/:groupId/diary/feed
+  // ────────────────────────────────────────────────────────────
+
+  it('returns all members with entries for the given date', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin('feed-leader@example.com'),
+      registerAndLogin('feed-member@example.com'),
+    ]);
+
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    const questionId = await createQuestionAsLeader(
+      groupId,
+      leader.sessionCookie,
+      'How was your day?',
+    );
+
+    await prismaService.groupMember.create({
+      data: { groupId, userId: member.userId, role: 'MEMBER' },
+    });
+
+    // Leader writes an answer
+    await request(app.getHttpServer() as Parameters<typeof request>[0])
+      .post(`/groups/${groupId}/diary/answers`)
+      .set('Cookie', leader.sessionCookie)
+      .send({
+        date: TEST_DATE,
+        questionType: 'CUSTOM',
+        groupQuestionId: questionId,
+        body: 'Leader had a great day.',
+      });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/feed`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(200);
+
+    const body = response.body as {
+      date: string;
+      members: {
+        userId: string;
+        user: { id: string; name: string };
+        entry: { answers: { body: string }[] } | null;
+      }[];
+    };
+
+    expect(body.date).toBe(TEST_DATE);
+    expect(body.members).toHaveLength(2);
+
+    const leaderRow = body.members.find((m) => m.userId === leader.userId);
+    const memberRow = body.members.find((m) => m.userId === member.userId);
+
+    expect(leaderRow?.entry).not.toBeNull();
+    expect(leaderRow?.entry?.answers).toHaveLength(1);
+    expect(leaderRow?.entry?.answers[0].body).toBe('Leader had a great day.');
+    expect(memberRow?.entry).toBeNull();
+  });
+
+  it('returns all members with null entries when no one has written', async () => {
+    const leader = await registerAndLogin('feed-no-entries@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/feed`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(200);
+
+    const body = response.body as {
+      date: string;
+      members: { entry: null }[];
+    };
+    expect(body.members).toHaveLength(1);
+    expect(body.members[0].entry).toBeNull();
+  });
+
+  it('returns 401 when accessing feed unauthenticated', async () => {
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get('/groups/some-group-id/diary/feed')
+      .query({ date: TEST_DATE });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns 403 when non-member requests the feed', async () => {
+    const [leader, nonMember] = await Promise.all([
+      registerAndLogin('feed-403-leader@example.com'),
+      registerAndLogin('feed-403-nonmember@example.com'),
+    ]);
+
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/feed`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', nonMember.sessionCookie);
+
+    expect(response.status).toBe(403);
+  });
+
+  it('returns 400 when date query param is missing from feed', async () => {
+    const leader = await registerAndLogin('feed-missing-date@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/feed`)
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('does not include entries from a different date in the feed', async () => {
+    const leader = await registerAndLogin('feed-date-isolation@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    const questionId = await createQuestionAsLeader(
+      groupId,
+      leader.sessionCookie,
+      'How was your day?',
+    );
+
+    // Write for a different date
+    await request(app.getHttpServer() as Parameters<typeof request>[0])
+      .post(`/groups/${groupId}/diary/answers`)
+      .set('Cookie', leader.sessionCookie)
+      .send({
+        date: '2026-08-25',
+        questionType: 'CUSTOM',
+        groupQuestionId: questionId,
+        body: 'Yesterday answer',
+      });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/feed`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(200);
+    const body = response.body as { members: { entry: null }[] };
+    expect(body.members[0].entry).toBeNull();
+  });
 });

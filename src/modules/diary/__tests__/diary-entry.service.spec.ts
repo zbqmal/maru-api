@@ -36,6 +36,9 @@ describe('DiaryEntryService', () => {
     groupQuestion: {
       findMany: jest.fn(),
     },
+    groupMember: {
+      findMany: jest.fn(),
+    },
   };
 
   function makeService() {
@@ -664,6 +667,121 @@ describe('DiaryEntryService', () => {
 
       expect(result.questions).toEqual([]);
       expect(result.entry).toBeNull();
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // getGroupDailyFeed
+  // ──────────────────────────────────────────────
+
+  describe('getGroupDailyFeed', () => {
+    const date = new Date('2024-06-01T00:00:00.000Z');
+
+    const makeUser = (id: string, name: string) => ({
+      id,
+      name,
+      profileImageKey: null,
+    });
+
+    const makeMembership = (
+      userId: string,
+      name: string,
+      memberId = `member-${userId}`,
+    ) => ({
+      id: memberId,
+      groupId: 'group-1',
+      userId,
+      role: 'MEMBER',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: makeUser(userId, name),
+    });
+
+    const makeEntry = (
+      userId: string,
+      answers: object[] = [],
+      entryId = `entry-${userId}`,
+    ) => ({
+      id: entryId,
+      groupId: 'group-1',
+      userId,
+      diaryDate: date,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      answers,
+    });
+
+    it('returns each member paired with their diary entry', async () => {
+      const memberships = [
+        makeMembership('user-1', 'Alice'),
+        makeMembership('user-2', 'Bob'),
+      ];
+      const entries = [makeEntry('user-1', [{ id: 'a1', body: 'Good day' }])];
+
+      prismaService.groupMember.findMany.mockResolvedValue(memberships);
+      prismaService.diaryEntry.findMany.mockResolvedValue(entries);
+
+      const service = makeService();
+      const result = await service.getGroupDailyFeed('group-1', date);
+
+      expect(result).toHaveLength(2);
+
+      const alice = result.find((r) => r.userId === 'user-1');
+      const bob = result.find((r) => r.userId === 'user-2');
+
+      expect(alice?.entry).not.toBeNull();
+      expect(alice?.entry?.answers).toHaveLength(1);
+      expect(bob?.entry).toBeNull();
+    });
+
+    it('returns null entry for every member when no entries exist for the date', async () => {
+      const memberships = [
+        makeMembership('user-1', 'Alice'),
+        makeMembership('user-2', 'Bob'),
+      ];
+
+      prismaService.groupMember.findMany.mockResolvedValue(memberships);
+      prismaService.diaryEntry.findMany.mockResolvedValue([]);
+
+      const service = makeService();
+      const result = await service.getGroupDailyFeed('group-1', date);
+
+      expect(result).toHaveLength(2);
+      expect(result.every((r) => r.entry === null)).toBe(true);
+    });
+
+    it('returns an empty array when the group has no members', async () => {
+      prismaService.groupMember.findMany.mockResolvedValue([]);
+      prismaService.diaryEntry.findMany.mockResolvedValue([]);
+
+      const service = makeService();
+      const result = await service.getGroupDailyFeed('group-1', date);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('fetches members and entries in parallel (both mocks called once)', async () => {
+      prismaService.groupMember.findMany.mockResolvedValue([]);
+      prismaService.diaryEntry.findMany.mockResolvedValue([]);
+
+      const service = makeService();
+      await service.getGroupDailyFeed('group-1', date);
+
+      expect(prismaService.groupMember.findMany).toHaveBeenCalledTimes(1);
+      expect(prismaService.diaryEntry.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns member user info on each result', async () => {
+      const memberships = [makeMembership('user-1', 'Alice')];
+      const entries = [makeEntry('user-1')];
+
+      prismaService.groupMember.findMany.mockResolvedValue(memberships);
+      prismaService.diaryEntry.findMany.mockResolvedValue(entries);
+
+      const service = makeService();
+      const result = await service.getGroupDailyFeed('group-1', date);
+
+      expect(result[0].user).toMatchObject({ id: 'user-1', name: 'Alice' });
     });
   });
 });
