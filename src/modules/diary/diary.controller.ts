@@ -34,6 +34,10 @@ import {
   toDiaryContextResponseDto,
 } from './dto/diary-context-response.dto';
 import { GetDiaryContextQueryDto } from './dto/get-diary-context-query.dto';
+import {
+  GroupDailyFeedResponseDto,
+  toGroupDailyFeedResponseDto,
+} from './dto/group-daily-feed-response.dto';
 import { UpdateAnswerDto } from './dto/update-answer.dto';
 
 @ApiTags('Diary')
@@ -77,9 +81,38 @@ export class DiaryController {
   }
 
   @ApiOperation({
+    summary: "Get all group members' diary entries for a given date",
+    description:
+      'Returns every group member paired with their diary entry (and answers) for the specified date. Members who have not written an entry for that date are included with `entry: null`. Requires group membership.',
+  })
+  @ApiOkResponse({
+    description: "Group members' diary entries for the given date.",
+    type: GroupDailyFeedResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'date must be a valid ISO 8601 date string (YYYY-MM-DD).',
+  })
+  @ApiForbiddenResponse({ description: 'Group membership required.' })
+  @UseGuards(GroupMemberGuard)
+  @Get('feed')
+  async getGroupDailyFeed(
+    @Param('groupId') groupId: string,
+    @Query() query: GetDiaryContextQueryDto,
+  ): Promise<GroupDailyFeedResponseDto> {
+    const diaryDate = new Date(`${query.date}T00:00:00.000Z`);
+
+    const memberships = await this.diaryEntryService.getGroupDailyFeed(
+      groupId,
+      diaryDate,
+    );
+
+    return toGroupDailyFeedResponseDto(diaryDate, memberships);
+  }
+
+  @ApiOperation({
     summary: 'Create a diary answer for a given date',
     description:
-      'Creates the caller’s answer for a custom question on the given date. If the user has no diary entry for that date yet, one is created automatically.',
+      "Creates the caller's answer for a custom question on the given date. If the user has no diary entry for that date yet, one is created automatically.",
   })
   @ApiCreatedResponse({
     description: 'Diary answer created successfully.',

@@ -8,11 +8,20 @@ import {
 import {
   Answer,
   DiaryEntry,
+  GroupMember,
   GroupQuestion,
   Prisma,
   QuestionType,
+  User,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+
+type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
+
+export type MembershipWithUserAndEntry = GroupMember & {
+  user: UserSummary;
+  entry: (DiaryEntry & { answers: Answer[] }) | null;
+};
 
 export interface CreateDiaryEntryInput {
   groupId: string;
@@ -267,6 +276,32 @@ export class DiaryEntryService {
       where: { groupId, diaryDate },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  async getGroupDailyFeed(
+    groupId: string,
+    date: Date,
+  ): Promise<MembershipWithUserAndEntry[]> {
+    const [memberships, entries] = await Promise.all([
+      this.prismaService.groupMember.findMany({
+        where: { groupId },
+        include: {
+          user: { select: { id: true, name: true, profileImageKey: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prismaService.diaryEntry.findMany({
+        where: { groupId, diaryDate: date },
+        include: { answers: { orderBy: { createdAt: 'asc' } } },
+      }),
+    ]);
+
+    const entryByUserId = new Map(entries.map((e) => [e.userId, e]));
+
+    return memberships.map((m) => ({
+      ...m,
+      entry: entryByUserId.get(m.userId) ?? null,
+    }));
   }
 
   async getTodaysDiaryContext(
