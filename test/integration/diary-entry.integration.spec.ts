@@ -185,6 +185,7 @@ describe('DiaryEntryService (integration)', () => {
 
     expect(answer.diaryEntryId).toBe(entry.id);
     expect(answer.groupQuestionId).toBe(question.id);
+    expect(answer.questionSnapshot).toBe('What made you smile today?');
     expect(answer.questionType).toBe(QuestionType.CUSTOM);
     expect(answer.body).toBe('Saw a rainbow!');
   });
@@ -269,6 +270,35 @@ describe('DiaryEntryService (integration)', () => {
     });
 
     expect(updated.body).toBe('Updated');
+    expect(updated.questionSnapshot).toBe('What made you smile today?');
+  });
+
+  it('keeps the original question snapshot after the source question text is updated', async () => {
+    const { leader, group, question, diaryDate } = await createFixture();
+
+    const entry = await diaryEntryService.findOrCreateEntry({
+      groupId: group.id,
+      userId: leader.id,
+      diaryDate,
+    });
+
+    const answer = await diaryEntryService.createAnswer({
+      diaryEntryId: entry.id,
+      questionType: QuestionType.CUSTOM,
+      groupQuestionId: question.id,
+      body: 'Original',
+    });
+
+    await groupQuestionService.updateQuestion(group.id, question.id, {
+      question: 'Updated question text',
+    });
+
+    const updatedAnswer = await diaryEntryService.updateAnswer(answer.id, {
+      body: 'Edited answer body',
+    });
+
+    expect(updatedAnswer.body).toBe('Edited answer body');
+    expect(updatedAnswer.questionSnapshot).toBe('What made you smile today?');
   });
 
   // ──────────────────────────────────────────────
@@ -328,6 +358,33 @@ describe('DiaryEntryService (integration)', () => {
     expect(answerCount).toBe(0);
   });
 
+  it('keeps answer and snapshot when the source group question is deleted', async () => {
+    const { leader, group, question, diaryDate } = await createFixture();
+
+    const entry = await diaryEntryService.findOrCreateEntry({
+      groupId: group.id,
+      userId: leader.id,
+      diaryDate,
+    });
+
+    const answer = await diaryEntryService.createAnswer({
+      diaryEntryId: entry.id,
+      questionType: QuestionType.CUSTOM,
+      groupQuestionId: question.id,
+      body: 'Will keep snapshot',
+    });
+
+    await groupQuestionService.deleteQuestion(group.id, question.id);
+
+    const persisted = await prismaService.answer.findUnique({
+      where: { id: answer.id },
+    });
+
+    expect(persisted).not.toBeNull();
+    expect(persisted!.groupQuestionId).toBeNull();
+    expect(persisted!.questionSnapshot).toBe('What made you smile today?');
+  });
+
   // ──────────────────────────────────────────────
   // getTodaysDiaryContext
   // ──────────────────────────────────────────────
@@ -373,6 +430,9 @@ describe('DiaryEntryService (integration)', () => {
       expect(context.entry!.id).toBe(entry.id);
       expect(context.entry!.answers).toHaveLength(1);
       expect(context.entry!.answers[0].body).toBe('Today went well');
+      expect(context.entry!.answers[0].questionSnapshot).toBe(
+        'What made you smile today?',
+      );
     });
 
     it('returns only active questions', async () => {

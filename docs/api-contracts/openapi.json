@@ -1046,9 +1046,8 @@
     },
     "/groups/{groupId}/diary/context": {
       "get": {
-        "operationId": "DiaryController_getDiaryContext",
-        "summary": "Get diary context for a given date",
         "description": "Returns the group's active custom questions and the current user's diary entry (if any) for the specified date. The `date` parameter must be the caller's **local date** in `YYYY-MM-DD` format so that users in different timezones each see their own correct diary day.",
+        "operationId": "DiaryController_getDiaryContext",
         "parameters": [
           {
             "name": "groupId",
@@ -1063,10 +1062,10 @@
             "required": true,
             "in": "query",
             "description": "The diary date in the user's local timezone (YYYY-MM-DD).",
-            "example": "2026-08-26",
             "schema": {
-              "type": "string",
-              "format": "date"
+              "format": "date",
+              "example": "2026-08-26",
+              "type": "string"
             }
           }
         ],
@@ -1091,13 +1090,14 @@
             "description": "Group membership required."
           }
         },
-        "tags": [
-          "Diary"
-        ],
         "security": [
           {
             "session": []
           }
+        ],
+        "summary": "Get diary context for a given date",
+        "tags": [
+          "Diary"
         ]
       }
     }
@@ -1636,10 +1636,13 @@
             ]
           },
           "groupQuestionId": {
-            "type": "string",
+            "type": "object",
             "nullable": true
           },
           "body": {
+            "type": "string"
+          },
+          "questionSnapshot": {
             "type": "string"
           },
           "createdAt": {
@@ -1653,8 +1656,8 @@
           "id",
           "diaryEntryId",
           "questionType",
-          "groupQuestionId",
           "body",
+          "questionSnapshot",
           "createdAt",
           "updatedAt"
         ]
@@ -1701,6 +1704,7 @@
           },
           "entry": {
             "nullable": true,
+            "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/DiaryEntryContextDto"
@@ -1709,22 +1713,7 @@
           }
         },
         "required": [
-          "questions",
-          "entry"
-        ]
-      },
-      "GetDiaryContextQueryDto": {
-        "type": "object",
-        "properties": {
-          "date": {
-            "type": "string",
-            "format": "date",
-            "example": "2026-08-26",
-            "description": "The diary date in the user's local timezone (YYYY-MM-DD)."
-          }
-        },
-        "required": [
-          "date"
+          "questions"
         ]
       }
     }
