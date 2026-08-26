@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,6 +22,15 @@ export interface CreateDiaryEntryInput {
 
 export interface CreateAnswerInput {
   diaryEntryId: string;
+  questionType: QuestionType;
+  groupQuestionId?: string;
+  body: string;
+}
+
+export interface CreateAnswerForUserInput {
+  groupId: string;
+  userId: string;
+  diaryDate: Date;
   questionType: QuestionType;
   groupQuestionId?: string;
   body: string;
@@ -139,6 +149,61 @@ export class DiaryEntryService {
     );
   }
 
+  async createAnswerForUser(input: CreateAnswerForUserInput): Promise<Answer> {
+    return this.prismaService.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const entry = await this.findOrCreateDiaryEntryInTransaction(tx, {
+          groupId: input.groupId,
+          userId: input.userId,
+          diaryDate: input.diaryDate,
+        });
+
+        if (input.questionType !== QuestionType.CUSTOM) {
+          throw new BadRequestException(
+            'Only CUSTOM question type is currently supported.',
+          );
+        }
+
+        if (!input.groupQuestionId) {
+          throw new BadRequestException(
+            'groupQuestionId is required for CUSTOM question type.',
+          );
+        }
+
+        const groupQuestion = await this.findGroupQuestionBelongingToGroup(
+          tx,
+          input.groupQuestionId,
+          input.groupId,
+        );
+
+        const duplicate = await tx.answer.findUnique({
+          where: {
+            diaryEntryId_groupQuestionId: {
+              diaryEntryId: entry.id,
+              groupQuestionId: input.groupQuestionId,
+            },
+          },
+        });
+
+        if (duplicate) {
+          throw new ConflictException(
+            'An answer for this question already exists in this diary entry.',
+          );
+        }
+
+        return tx.answer.create({
+          data: {
+            diaryEntryId: entry.id,
+            questionType: QuestionType.CUSTOM,
+            groupQuestionId: input.groupQuestionId,
+            questionSnapshot: groupQuestion.question,
+            body: input.body,
+          },
+        });
+      },
+    );
+  }
+
   async updateAnswer(
     answerId: string,
     input: UpdateAnswerInput,
@@ -149,6 +214,38 @@ export class DiaryEntryService {
 
     if (!answer) {
       throw new NotFoundException('Answer not found.');
+    }
+
+    return this.prismaService.answer.update({
+      where: { id: answerId },
+      data: { body: input.body },
+    });
+  }
+
+  async updateAnswerForUser(
+    groupId: string,
+    userId: string,
+    answerId: string,
+    input: UpdateAnswerInput,
+  ): Promise<Answer> {
+    const answer = await this.prismaService.answer.findUnique({
+      where: { id: answerId },
+      include: {
+        diaryEntry: {
+          select: {
+            groupId: true,
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!answer) {
+      throw new NotFoundException('Answer not found.');
+    }
+
+    if (answer.diaryEntry.groupId !== groupId || answer.diaryEntry.userId !== userId) {
+      throw new ForbiddenException('You can only update your own diary answers.');
     }
 
     return this.prismaService.answer.update({
@@ -237,5 +334,32 @@ export class DiaryEntryService {
     }
 
     return question;
+  }
+
+  private async findOrCreateDiaryEntryInTransaction(
+    tx: Prisma.TransactionClient,
+    input: CreateDiaryEntryInput,
+  ): Promise<DiaryEntry> {
+    const existing = await tx.diaryEntry.findUnique({
+      where: {
+        groupId_userId_diaryDate: {
+          groupId: input.groupId,
+          userId: input.userId,
+          diaryDate: input.diaryDate,
+        },
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return tx.diaryEntry.create({
+      data: {
+        groupId: input.groupId,
+        userId: input.userId,
+        diaryDate: input.diaryDate,
+      },
+    });
   }
 }

@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { QuestionType } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.filter';
@@ -93,6 +94,21 @@ describe('DiaryController (e2e)', () => {
       .post('/groups')
       .set('Cookie', sessionCookie)
       .send({ name });
+
+    return (response.body as { id: string }).id;
+  }
+
+  async function createQuestionAsLeader(
+    groupId: string,
+    sessionCookie: string,
+    question: string,
+  ): Promise<string> {
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/questions`)
+      .set('Cookie', sessionCookie)
+      .send({ question });
 
     return (response.body as { id: string }).id;
   }
@@ -286,6 +302,128 @@ describe('DiaryController (e2e)', () => {
       .set('Cookie', nonMember.sessionCookie);
 
     expect(response.status).toBe(403);
+  });
+
+  it('creates an answer and auto-creates today diary entry when missing', async () => {
+    const leader = await registerAndLogin('diary-create-answer@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    const questionId = await createQuestionAsLeader(
+      groupId,
+      leader.sessionCookie,
+      'What made you smile today?',
+    );
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/diary/answers`)
+      .set('Cookie', leader.sessionCookie)
+      .send({
+        date: TEST_DATE,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: questionId,
+        body: 'Had a great walk.',
+      });
+
+    expect(createResponse.status).toBe(201);
+    expect((createResponse.body as { body: string }).body).toBe(
+      'Had a great walk.',
+    );
+
+    const contextResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(contextResponse.status).toBe(200);
+    const entry = (
+      contextResponse.body as { entry: { answers: Array<{ id: string }> } | null }
+    ).entry;
+    expect(entry).not.toBeNull();
+    expect(entry!.answers).toHaveLength(1);
+  });
+
+  it('returns 409 when creating duplicate answer for same diary question', async () => {
+    const leader = await registerAndLogin('diary-duplicate-answer@example.com');
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    const questionId = await createQuestionAsLeader(
+      groupId,
+      leader.sessionCookie,
+      'How was your day?',
+    );
+
+    const payload = {
+      date: TEST_DATE,
+      questionType: QuestionType.CUSTOM,
+      groupQuestionId: questionId,
+      body: 'Good day.',
+    };
+
+    const first = await request(app.getHttpServer() as Parameters<typeof request>[0])
+      .post(`/groups/${groupId}/diary/answers`)
+      .set('Cookie', leader.sessionCookie)
+      .send(payload);
+    expect(first.status).toBe(201);
+
+    const second = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/diary/answers`)
+      .set('Cookie', leader.sessionCookie)
+      .send(payload);
+
+    expect(second.status).toBe(409);
+  });
+
+  it('allows owner to update answer and forbids another member from updating it', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin('diary-update-owner@example.com'),
+      registerAndLogin('diary-update-member@example.com'),
+    ]);
+
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    const questionId = await createQuestionAsLeader(
+      groupId,
+      leader.sessionCookie,
+      'What was meaningful today?',
+    );
+
+    await prismaService.groupMember.create({
+      data: { groupId, userId: member.userId, role: 'MEMBER' },
+    });
+
+    const createResponse = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/diary/answers`)
+      .set('Cookie', leader.sessionCookie)
+      .send({
+        date: TEST_DATE,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: questionId,
+        body: 'Initial answer',
+      });
+    expect(createResponse.status).toBe(201);
+    const answerId = (createResponse.body as { id: string }).id;
+
+    const ownerUpdate = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}/diary/answers/${answerId}`)
+      .set('Cookie', leader.sessionCookie)
+      .send({ body: 'Updated by owner' });
+    expect(ownerUpdate.status).toBe(200);
+    expect((ownerUpdate.body as { body: string }).body).toBe('Updated by owner');
+
+    const nonOwnerUpdate = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .patch(`/groups/${groupId}/diary/answers/${answerId}`)
+      .set('Cookie', member.sessionCookie)
+      .send({ body: 'Attempted hijack' });
+    expect(nonOwnerUpdate.status).toBe(403);
   });
 
   it("does not return another member's diary entry", async () => {
