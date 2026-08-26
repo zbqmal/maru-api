@@ -10,4 +10,5 @@ export interface EnvironmentVariables {
   RESEND_API_KEY: string;
   EMAIL_FROM: string;
   FRONTEND_URL: string;
+  OPENAI_API_KEY: string | undefined;
 }

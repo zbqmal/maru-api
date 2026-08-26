@@ -22,7 +22,8 @@ export class CreateAnswerDto {
 
   @ApiProperty({
     enum: QuestionType,
-    description: 'Question type. For this milestone, use CUSTOM.',
+    description:
+      'Question type: CUSTOM for group questions, DAILY for the global daily question.',
     example: QuestionType.CUSTOM,
   })
   @IsEnum(QuestionType)

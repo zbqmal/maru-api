@@ -157,6 +157,7 @@ export function validateEnvironment(
     RESEND_API_KEY: readRequiredString(config, 'RESEND_API_KEY'),
     EMAIL_FROM: readRequiredString(config, 'EMAIL_FROM'),
     FRONTEND_URL: readFrontendUrl(config, 'FRONTEND_URL', nodeEnvironment),
+    OPENAI_API_KEY: readOptionalString(config, 'OPENAI_API_KEY'),
   };
 }
 
