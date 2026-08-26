@@ -1,8 +1,19 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCookieAuth,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -14,10 +25,16 @@ import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { GroupMemberGuard } from '../group/guards/group-member.guard';
 import { DiaryEntryService } from './diary-entry.service';
 import {
+  AnswerResponseDto,
+  toAnswerResponseDto,
+} from './dto/answer-response.dto';
+import { CreateAnswerDto } from './dto/create-answer.dto';
+import {
   DiaryContextResponseDto,
   toDiaryContextResponseDto,
 } from './dto/diary-context-response.dto';
 import { GetDiaryContextQueryDto } from './dto/get-diary-context-query.dto';
+import { UpdateAnswerDto } from './dto/update-answer.dto';
 
 @ApiTags('Diary')
 @ApiCookieAuth('session')
@@ -57,5 +74,72 @@ export class DiaryController {
     );
 
     return toDiaryContextResponseDto(context.questions, context.entry);
+  }
+
+  @ApiOperation({
+    summary: 'Create a diary answer for a given date',
+    description:
+      'Creates the caller’s answer for a custom question on the given date. If the user has no diary entry for that date yet, one is created automatically.',
+  })
+  @ApiCreatedResponse({
+    description: 'Diary answer created successfully.',
+    type: AnswerResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Request payload is invalid or an unsupported question type was provided.',
+  })
+  @ApiForbiddenResponse({ description: 'Group membership required.' })
+  @ApiNotFoundResponse({
+    description: 'Group question not found or does not belong to this group.',
+  })
+  @UseGuards(GroupMemberGuard)
+  @Post('answers')
+  async createAnswer(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateAnswerDto,
+  ): Promise<AnswerResponseDto> {
+    const diaryDate = new Date(`${dto.date}T00:00:00.000Z`);
+    const answer = await this.diaryEntryService.createAnswerForUser({
+      groupId,
+      userId: user.id,
+      diaryDate,
+      questionType: dto.questionType,
+      groupQuestionId: dto.groupQuestionId,
+      body: dto.body,
+    });
+
+    return toAnswerResponseDto(answer);
+  }
+
+  @ApiOperation({ summary: 'Update an existing diary answer' })
+  @ApiOkResponse({
+    description: 'Diary answer updated successfully.',
+    type: AnswerResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Request payload is invalid.' })
+  @ApiForbiddenResponse({
+    description: 'Group membership required or diary ownership is violated.',
+  })
+  @ApiNotFoundResponse({ description: 'Answer not found.' })
+  @UseGuards(GroupMemberGuard)
+  @Patch('answers/:answerId')
+  async updateAnswer(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Param('answerId') answerId: string,
+    @Body() dto: UpdateAnswerDto,
+  ): Promise<AnswerResponseDto> {
+    const answer = await this.diaryEntryService.updateAnswerForUser(
+      groupId,
+      user.id,
+      answerId,
+      {
+        body: dto.body,
+      },
+    );
+
+    return toAnswerResponseDto(answer);
   }
 }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { QuestionType, Prisma } from '@prisma/client';
@@ -366,6 +367,184 @@ describe('DiaryEntryService', () => {
       const service = makeService();
       await expect(
         service.updateAnswer('missing', { body: 'x' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // createAnswerForUser
+  // ──────────────────────────────────────────────
+
+  describe('createAnswerForUser', () => {
+    it('creates diary entry automatically and then creates answer', async () => {
+      const createdAnswer = {
+        id: 'answer-2',
+        diaryEntryId: 'entry-2',
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: 'question-1',
+        questionSnapshot: 'What made you smile today?',
+        body: 'Auto entry answer',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue(null);
+      tx.diaryEntry.create.mockResolvedValue({
+        id: 'entry-2',
+        groupId: 'group-1',
+        userId: 'user-1',
+        diaryDate: new Date('2024-01-01'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      tx.groupQuestion.findFirst.mockResolvedValue({
+        id: 'question-1',
+        question: 'What made you smile today?',
+      });
+      tx.answer.findUnique.mockResolvedValue(null);
+      tx.answer.create.mockResolvedValue(createdAnswer);
+
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      const service = makeService();
+      const result = await service.createAnswerForUser({
+        groupId: 'group-1',
+        userId: 'user-1',
+        diaryDate: new Date('2024-01-01'),
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: 'question-1',
+        body: 'Auto entry answer',
+      });
+
+      expect(result).toEqual(createdAnswer);
+      expect(tx.diaryEntry.create).toHaveBeenCalledWith({
+        data: {
+          groupId: 'group-1',
+          userId: 'user-1',
+          diaryDate: new Date('2024-01-01'),
+        },
+      });
+    });
+
+    it('throws ConflictException when duplicate exists for created-or-found entry', async () => {
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        diaryDate: new Date('2024-01-01'),
+      });
+      tx.groupQuestion.findFirst.mockResolvedValue({
+        id: 'question-1',
+        question: 'What made you smile today?',
+      });
+      tx.answer.findUnique.mockResolvedValue({ id: 'dup' });
+
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      const service = makeService();
+      await expect(
+        service.createAnswerForUser({
+          groupId: 'group-1',
+          userId: 'user-1',
+          diaryDate: new Date('2024-01-01'),
+          questionType: QuestionType.CUSTOM,
+          groupQuestionId: 'question-1',
+          body: 'Duplicate',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('throws BadRequestException when DAILY type is provided', async () => {
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        diaryDate: new Date('2024-01-01'),
+      });
+
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      const service = makeService();
+      await expect(
+        service.createAnswerForUser({
+          groupId: 'group-1',
+          userId: 'user-1',
+          diaryDate: new Date('2024-01-01'),
+          questionType: QuestionType.DAILY,
+          body: 'Not supported yet',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // updateAnswerForUser
+  // ──────────────────────────────────────────────
+
+  describe('updateAnswerForUser', () => {
+    it('updates answer when owner and group match', async () => {
+      prismaService.answer.findUnique.mockResolvedValue({
+        id: 'answer-1',
+        body: 'Old body',
+        diaryEntry: {
+          groupId: 'group-1',
+          userId: 'user-1',
+        },
+      });
+      prismaService.answer.update.mockResolvedValue({
+        id: 'answer-1',
+        body: 'New body',
+      });
+
+      const service = makeService();
+      await expect(
+        service.updateAnswerForUser('group-1', 'user-1', 'answer-1', {
+          body: 'New body',
+        }),
+      ).resolves.toEqual({
+        id: 'answer-1',
+        body: 'New body',
+      });
+    });
+
+    it('throws ForbiddenException when answer is owned by another user', async () => {
+      prismaService.answer.findUnique.mockResolvedValue({
+        id: 'answer-1',
+        body: 'Old body',
+        diaryEntry: {
+          groupId: 'group-1',
+          userId: 'user-2',
+        },
+      });
+
+      const service = makeService();
+      await expect(
+        service.updateAnswerForUser('group-1', 'user-1', 'answer-1', {
+          body: 'New body',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws NotFoundException when answer does not exist', async () => {
+      prismaService.answer.findUnique.mockResolvedValue(null);
+
+      const service = makeService();
+      await expect(
+        service.updateAnswerForUser('group-1', 'user-1', 'missing', {
+          body: 'x',
+        }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

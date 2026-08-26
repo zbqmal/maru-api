@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { QuestionType } from '@prisma/client';
@@ -245,6 +249,79 @@ describe('DiaryEntryService (integration)', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('creates diary entry automatically when creating the first answer for a date', async () => {
+    const { leader, group, question, diaryDate } = await createFixture();
+
+    const beforeEntry = await prismaService.diaryEntry.findUnique({
+      where: {
+        groupId_userId_diaryDate: {
+          groupId: group.id,
+          userId: leader.id,
+          diaryDate,
+        },
+      },
+    });
+    expect(beforeEntry).toBeNull();
+
+    const answer = await diaryEntryService.createAnswerForUser({
+      groupId: group.id,
+      userId: leader.id,
+      diaryDate,
+      questionType: QuestionType.CUSTOM,
+      groupQuestionId: question.id,
+      body: 'Auto-created entry answer',
+    });
+
+    const persistedEntry = await prismaService.diaryEntry.findUnique({
+      where: {
+        groupId_userId_diaryDate: {
+          groupId: group.id,
+          userId: leader.id,
+          diaryDate,
+        },
+      },
+    });
+
+    expect(persistedEntry).not.toBeNull();
+    expect(answer.diaryEntryId).toBe(persistedEntry!.id);
+  });
+
+  it('rolls back auto-created diary entry when answer creation fails', async () => {
+    const { leader, group, diaryDate } = await createFixture();
+
+    const otherGroup = await groupService.createGroupWithLeader({
+      name: 'Rollback Group',
+      leaderUserId: leader.id,
+    });
+    const foreignQuestion = await groupQuestionService.createQuestion(
+      otherGroup.id,
+      leader.id,
+      { question: 'Foreign question for rollback' },
+    );
+
+    await expect(
+      diaryEntryService.createAnswerForUser({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: foreignQuestion.id,
+        body: 'Should fail and rollback entry',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const entryAfterFailure = await prismaService.diaryEntry.findUnique({
+      where: {
+        groupId_userId_diaryDate: {
+          groupId: group.id,
+          userId: leader.id,
+          diaryDate,
+        },
+      },
+    });
+    expect(entryAfterFailure).toBeNull();
+  });
+
   // ──────────────────────────────────────────────
   // updateAnswer
   // ──────────────────────────────────────────────
@@ -299,6 +376,32 @@ describe('DiaryEntryService (integration)', () => {
 
     expect(updatedAnswer.body).toBe('Edited answer body');
     expect(updatedAnswer.questionSnapshot).toBe('What made you smile today?');
+  });
+
+  it('forbids updating another member’s answer via ownership-aware update', async () => {
+    const { leader, member, group, question, diaryDate } =
+      await createFixture();
+
+    const memberEntry = await diaryEntryService.findOrCreateEntry({
+      groupId: group.id,
+      userId: member.id,
+      diaryDate,
+    });
+    const memberAnswer = await diaryEntryService.createAnswer({
+      diaryEntryId: memberEntry.id,
+      questionType: QuestionType.CUSTOM,
+      groupQuestionId: question.id,
+      body: 'Member answer',
+    });
+
+    await expect(
+      diaryEntryService.updateAnswerForUser(
+        group.id,
+        leader.id,
+        memberAnswer.id,
+        { body: 'Leader trying to edit member answer' },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   // ──────────────────────────────────────────────
