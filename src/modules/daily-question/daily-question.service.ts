@@ -9,11 +9,12 @@ Generate one meaningful, open-ended daily reflection question in Korean.
 The question should be warm, personal, and encourage genuine sharing between people who care about each other.
 Requirements:
 - Written in Korean
-- One sentence only
-- No more than 50 characters
+- No more than two sentences
+- No more than 100 characters
 - No bullet points, numbering, or extra formatting
 - Do not include quotation marks
 - End with a question mark (?)
+- Keep it safe, wholesome, and family-friendly (avoid inappropriate, violent, or sensitive topics)
 Respond with only the question text.`;
 
 const MAX_QUESTION_LENGTH = 100;

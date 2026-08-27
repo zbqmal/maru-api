@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  HttpCode,
   Logger,
   NotFoundException,
   Post,
@@ -65,6 +66,7 @@ export class DailyQuestionController {
     description: "Today's daily question (newly generated or existing).",
     type: DailyQuestionResponseDto,
   })
+  @HttpCode(200)
   @Post('generate')
   async triggerGeneration(): Promise<DailyQuestionResponseDto> {
     const question =

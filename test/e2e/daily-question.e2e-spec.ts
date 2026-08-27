@@ -57,7 +57,6 @@ describe('DailyQuestionController (e2e)', () => {
     await prismaService.dailyQuestion.deleteMany();
     await prismaService.groupQuestion.deleteMany();
     await prismaService.groupInvitation.deleteMany();
-    await prismaService.groupMember.deleteMany();
     await prismaService.group.deleteMany();
     await prismaService.session.deleteMany();
     await prismaService.passwordResetToken.deleteMany();
@@ -252,6 +251,31 @@ describe('DailyQuestionController (e2e)', () => {
           questionDate: TEST_DATE,
         },
       });
+    });
+
+    it('excludes dailyQuestion when requested date differs from the generated question date', async () => {
+      await dailyQuestionService.generateAndStoreTodaysQuestion();
+
+      const { sessionCookie } = await registerAndLogin(
+        'dq-ctx-other-date@example.com',
+      );
+      const groupId = await createGroup(sessionCookie);
+
+      const yesterday = new Date();
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const otherDate = yesterday.toISOString().split('T')[0];
+
+      const response = await request(
+        app.getHttpServer() as Parameters<typeof request>[0],
+      )
+        .get(`/groups/${groupId}/diary/context`)
+        .query({ date: otherDate })
+        .set('Cookie', sessionCookie);
+
+      expect(response.status).toBe(200);
+      expect(
+        (response.body as { dailyQuestion: unknown }).dailyQuestion,
+      ).toBeNull();
     });
   });
 

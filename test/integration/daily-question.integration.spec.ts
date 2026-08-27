@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { validateEnvironment } from '../../src/common/config/environment.validation';
@@ -68,7 +69,6 @@ describe('DailyQuestionService (integration)', () => {
     await prismaService.dailyQuestion.deleteMany();
     await prismaService.groupQuestion.deleteMany();
     await prismaService.groupInvitation.deleteMany();
-    await prismaService.groupMember.deleteMany();
     await prismaService.group.deleteMany();
     await prismaService.session.deleteMany();
     await prismaService.passwordResetToken.deleteMany();
@@ -226,7 +226,6 @@ describe('DailyQuestionService (integration)', () => {
         body: 'First answer.',
       });
 
-      const { ConflictException } = await import('@nestjs/common');
       await expect(
         diaryEntryService.createAnswerForUser({
           groupId: group.id,
@@ -282,6 +281,28 @@ describe('DailyQuestionService (integration)', () => {
       expect(context.dailyQuestion).not.toBeNull();
       expect(context.dailyQuestion?.id).toBe(dailyQ.id);
       expect(context.dailyQuestion?.question).toBe(MOCK_QUESTION);
+    });
+
+    it('returns null dailyQuestion when the generated question is for a different date', async () => {
+      const { leader, group } = await createFixture();
+      await dailyQuestionService.generateAndStoreTodaysQuestion();
+
+      const today = new Date();
+      const yesterday = new Date(
+        Date.UTC(
+          today.getUTCFullYear(),
+          today.getUTCMonth(),
+          today.getUTCDate() - 1,
+        ),
+      );
+
+      const context = await diaryEntryService.getTodaysDiaryContext(
+        group.id,
+        leader.id,
+        yesterday,
+      );
+
+      expect(context.dailyQuestion).toBeNull();
     });
   });
 });

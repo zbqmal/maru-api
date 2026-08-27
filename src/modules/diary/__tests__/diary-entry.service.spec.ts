@@ -44,7 +44,7 @@ describe('DiaryEntryService', () => {
   };
 
   const dailyQuestionService = {
-    findTodaysQuestion: jest.fn(),
+    findByDate: jest.fn(),
   };
 
   function makeService() {
@@ -695,7 +695,7 @@ describe('DiaryEntryService', () => {
       };
 
       prismaService.groupQuestion.findMany.mockResolvedValue(questions);
-      dailyQuestionService.findTodaysQuestion.mockResolvedValue(dailyQ);
+      dailyQuestionService.findByDate.mockResolvedValue(dailyQ);
       prismaService.diaryEntry.findUnique.mockResolvedValue(null);
 
       const service = makeService();
@@ -713,6 +713,7 @@ describe('DiaryEntryService', () => {
         where: { groupId: 'group-1', isActive: true },
         orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
       });
+      expect(dailyQuestionService.findByDate).toHaveBeenCalledWith(date);
       expect(prismaService.diaryEntry.findUnique).toHaveBeenCalledWith({
         where: {
           groupId_userId_diaryDate: {
@@ -756,7 +757,7 @@ describe('DiaryEntryService', () => {
       };
 
       prismaService.groupQuestion.findMany.mockResolvedValue(questions);
-      dailyQuestionService.findTodaysQuestion.mockResolvedValue(dailyQ);
+      dailyQuestionService.findByDate.mockResolvedValue(dailyQ);
       prismaService.diaryEntry.findUnique.mockResolvedValue(entry);
 
       const service = makeService();
@@ -773,7 +774,7 @@ describe('DiaryEntryService', () => {
 
     it('returns null dailyQuestion when no question has been generated yet', async () => {
       prismaService.groupQuestion.findMany.mockResolvedValue([]);
-      dailyQuestionService.findTodaysQuestion.mockResolvedValue(null);
+      dailyQuestionService.findByDate.mockResolvedValue(null);
       prismaService.diaryEntry.findUnique.mockResolvedValue(null);
 
       const service = makeService();
@@ -786,6 +787,19 @@ describe('DiaryEntryService', () => {
       expect(result.questions).toEqual([]);
       expect(result.dailyQuestion).toBeNull();
       expect(result.entry).toBeNull();
+    });
+
+    it('looks up the daily question for the requested date, not always today', async () => {
+      const otherDate = new Date('2024-06-02');
+
+      prismaService.groupQuestion.findMany.mockResolvedValue([]);
+      dailyQuestionService.findByDate.mockResolvedValue(null);
+      prismaService.diaryEntry.findUnique.mockResolvedValue(null);
+
+      const service = makeService();
+      await service.getTodaysDiaryContext('group-1', 'user-1', otherDate);
+
+      expect(dailyQuestionService.findByDate).toHaveBeenCalledWith(otherDate);
     });
   });
 

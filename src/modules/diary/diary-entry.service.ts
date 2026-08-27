@@ -296,7 +296,7 @@ export class DiaryEntryService {
         where: { groupId, isActive: true },
         orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
       }),
-      this.dailyQuestionService.findTodaysQuestion(),
+      this.dailyQuestionService.findByDate(date),
       this.prismaService.diaryEntry.findUnique({
         where: {
           groupId_userId_diaryDate: {
