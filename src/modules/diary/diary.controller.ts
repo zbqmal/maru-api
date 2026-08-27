@@ -77,7 +77,11 @@ export class DiaryController {
       diaryDate,
     );
 
-    return toDiaryContextResponseDto(context.questions, context.entry);
+    return toDiaryContextResponseDto(
+      context.questions,
+      context.dailyQuestion,
+      context.entry,
+    );
   }
 
   @ApiOperation({

@@ -148,18 +148,32 @@ model DiaryEntry {
 }
 
 model Answer {
-  id              String       @id @default(cuid())
-  diaryEntryId    String       @map("diary_entry_id")
-  questionType    QuestionType @map("question_type")
-  groupQuestionId String?      @map("group_question_id")
-  questionSnapshot String      @map("question_snapshot") @db.VarChar(200)
-  body            String       @db.VarChar(2000)
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
-  diaryEntry      DiaryEntry   @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
-  groupQuestion   GroupQuestion? @relation(fields: [groupQuestionId], references: [id], onDelete: SetNull)
+  id               String        @id @default(cuid())
+  diaryEntryId     String        @map("diary_entry_id")
+  questionType     QuestionType  @map("question_type")
+  groupQuestionId  String?       @map("group_question_id")
+  dailyQuestionId  String?       @map("daily_question_id")
+  questionSnapshot String        @map("question_snapshot") @db.VarChar(200)
+  body             String        @db.VarChar(2000)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  diaryEntry       DiaryEntry    @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
+  groupQuestion    GroupQuestion? @relation(fields: [groupQuestionId], references: [id], onDelete: SetNull)
+  dailyQuestion    DailyQuestion? @relation(fields: [dailyQuestionId], references: [id], onDelete: SetNull)
 
   @@unique([diaryEntryId, groupQuestionId])
+  @@unique([diaryEntryId, dailyQuestionId])
   @@index([diaryEntryId])
   @@map("answers")
+}
+
+model DailyQuestion {
+  id           String   @id @default(cuid())
+  question     String   @db.VarChar(200)
+  questionDate DateTime @map("question_date") @db.Date
+  createdAt    DateTime @default(now()) @map("created_at")
+  answers      Answer[]
+
+  @@unique([questionDate])
+  @@map("daily_questions")
 }

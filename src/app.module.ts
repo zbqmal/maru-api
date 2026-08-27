@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { validateEnvironment } from './common/config/environment.validation';
 import { DatabaseModule } from './modules/database/database.module';
+import { DailyQuestionModule } from './modules/daily-question/daily-question.module';
 import { DiaryModule } from './modules/diary/diary.module';
 import { EmailModule } from './modules/email/email.module';
 import { GroupModule } from './modules/group/group.module';
@@ -28,6 +29,7 @@ import { ProfileModule } from './modules/profile/profile.module';
     AuthModule,
     ProfileModule,
     DiaryModule,
+    DailyQuestionModule,
   ],
 })
 export class AppModule {}

@@ -1282,6 +1282,71 @@
           "Diary"
         ]
       }
+    },
+    "/daily-question/today": {
+      "get": {
+        "description": "Returns the AI-generated global question for today (UTC date). Returns 404 if today's question has not been generated yet.",
+        "operationId": "DailyQuestionController_getTodaysQuestion",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Today's daily question.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyQuestionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Today's question has not been generated yet."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get today's global daily question",
+        "tags": [
+          "Daily Question"
+        ]
+      }
+    },
+    "/daily-question/generate": {
+      "post": {
+        "description": "Manually triggers generation of today's question. Idempotent – returns the existing question if already generated.",
+        "operationId": "DailyQuestionController_triggerGeneration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Today's daily question (newly generated or existing).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyQuestionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Trigger generation of today's daily question (admin/dev use)",
+        "tags": [
+          "Daily Question"
+        ]
+      }
     }
   },
   "info": {
@@ -1801,6 +1866,31 @@
           "birthday"
         ]
       },
+      "DailyQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "questionDate": {
+            "type": "string",
+            "description": "ISO-8601 date string (date only)",
+            "example": "2026-08-26"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "questionDate",
+          "createdAt"
+        ]
+      },
       "AnswerResponseDto": {
         "type": "object",
         "properties": {
@@ -1883,6 +1973,15 @@
             "items": {
               "$ref": "#/components/schemas/GroupQuestionResponseDto"
             }
+          },
+          "dailyQuestion": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DailyQuestionResponseDto"
+              }
+            ]
           },
           "entry": {
             "nullable": true,
@@ -2006,7 +2105,7 @@
               "CUSTOM",
               "DAILY"
             ],
-            "description": "Question type. For this milestone, use CUSTOM.",
+            "description": "Question type: CUSTOM for group questions, DAILY for the global daily question.",
             "example": "CUSTOM"
           },
           "groupQuestionId": {

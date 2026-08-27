@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   Answer,
+  DailyQuestion,
   DiaryEntry,
   GroupMember,
   GroupQuestion,
@@ -15,6 +16,7 @@ import {
   User,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { DailyQuestionService } from '../daily-question/daily-question.service';
 
 type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 
@@ -33,6 +35,7 @@ export interface CreateAnswerInput {
   diaryEntryId: string;
   questionType: QuestionType;
   groupQuestionId?: string;
+  dailyQuestionId?: string;
   body: string;
 }
 
@@ -51,12 +54,16 @@ export interface UpdateAnswerInput {
 
 export interface DiaryContext {
   questions: GroupQuestion[];
+  dailyQuestion: DailyQuestion | null;
   entry: (DiaryEntry & { answers: Answer[] }) | null;
 }
 
 @Injectable()
 export class DiaryEntryService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly dailyQuestionService: DailyQuestionService,
+  ) {}
 
   async findOrCreateEntry(input: CreateDiaryEntryInput): Promise<DiaryEntry> {
     return this.prismaService.$transaction(
@@ -150,6 +157,7 @@ export class DiaryEntryService {
             diaryEntryId: input.diaryEntryId,
             questionType: input.questionType,
             groupQuestionId: input.groupQuestionId ?? null,
+            dailyQuestionId: input.dailyQuestionId ?? null,
             questionSnapshot,
             body: input.body,
           },
@@ -167,48 +175,22 @@ export class DiaryEntryService {
           diaryDate: input.diaryDate,
         });
 
-        if (input.questionType !== QuestionType.CUSTOM) {
-          throw new BadRequestException(
-            'Only CUSTOM question type is currently supported.',
+        if (input.questionType === QuestionType.CUSTOM) {
+          return this.createCustomAnswer(tx, entry.id, input);
+        }
+
+        if (input.questionType === QuestionType.DAILY) {
+          return this.createDailyAnswer(
+            tx,
+            entry.id,
+            input.diaryDate,
+            input.body,
           );
         }
 
-        if (!input.groupQuestionId) {
-          throw new BadRequestException(
-            'groupQuestionId is required for CUSTOM question type.',
-          );
-        }
-
-        const groupQuestion = await this.findGroupQuestionBelongingToGroup(
-          tx,
-          input.groupQuestionId,
-          input.groupId,
+        throw new BadRequestException(
+          `Unsupported question type: ${String(input.questionType)}`,
         );
-
-        const duplicate = await tx.answer.findUnique({
-          where: {
-            diaryEntryId_groupQuestionId: {
-              diaryEntryId: entry.id,
-              groupQuestionId: input.groupQuestionId,
-            },
-          },
-        });
-
-        if (duplicate) {
-          throw new ConflictException(
-            'An answer for this question already exists in this diary entry.',
-          );
-        }
-
-        return tx.answer.create({
-          data: {
-            diaryEntryId: entry.id,
-            questionType: QuestionType.CUSTOM,
-            groupQuestionId: input.groupQuestionId,
-            questionSnapshot: groupQuestion.question,
-            body: input.body,
-          },
-        });
       },
     );
   }
@@ -309,11 +291,12 @@ export class DiaryEntryService {
     userId: string,
     date: Date,
   ): Promise<DiaryContext> {
-    const [questions, entry] = await Promise.all([
+    const [questions, dailyQuestion, entry] = await Promise.all([
       this.prismaService.groupQuestion.findMany({
         where: { groupId, isActive: true },
         orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
       }),
+      this.dailyQuestionService.findByDate(date),
       this.prismaService.diaryEntry.findUnique({
         where: {
           groupId_userId_diaryDate: {
@@ -326,7 +309,93 @@ export class DiaryEntryService {
       }),
     ]);
 
-    return { questions, entry };
+    return { questions, dailyQuestion, entry };
+  }
+
+  private async createCustomAnswer(
+    tx: Prisma.TransactionClient,
+    diaryEntryId: string,
+    input: CreateAnswerForUserInput,
+  ): Promise<Answer> {
+    if (!input.groupQuestionId) {
+      throw new BadRequestException(
+        'groupQuestionId is required for CUSTOM question type.',
+      );
+    }
+
+    const groupQuestion = await this.findGroupQuestionBelongingToGroup(
+      tx,
+      input.groupQuestionId,
+      input.groupId,
+    );
+
+    const duplicate = await tx.answer.findUnique({
+      where: {
+        diaryEntryId_groupQuestionId: {
+          diaryEntryId,
+          groupQuestionId: input.groupQuestionId,
+        },
+      },
+    });
+
+    if (duplicate) {
+      throw new ConflictException(
+        'An answer for this question already exists in this diary entry.',
+      );
+    }
+
+    return tx.answer.create({
+      data: {
+        diaryEntryId,
+        questionType: QuestionType.CUSTOM,
+        groupQuestionId: input.groupQuestionId,
+        dailyQuestionId: null,
+        questionSnapshot: groupQuestion.question,
+        body: input.body,
+      },
+    });
+  }
+
+  private async createDailyAnswer(
+    tx: Prisma.TransactionClient,
+    diaryEntryId: string,
+    diaryDate: Date,
+    body: string,
+  ): Promise<Answer> {
+    const dailyQuestion = await tx.dailyQuestion.findUnique({
+      where: { questionDate: diaryDate },
+    });
+
+    if (!dailyQuestion) {
+      throw new NotFoundException(
+        "Today's daily question has not been generated yet.",
+      );
+    }
+
+    const duplicate = await tx.answer.findFirst({
+      where: {
+        diaryEntryId,
+        questionType: QuestionType.DAILY,
+        dailyQuestionId: dailyQuestion.id,
+      },
+    });
+
+    if (duplicate) {
+      throw new ConflictException(
+        'A daily answer already exists in this diary entry.',
+      );
+    }
+
+    return tx.answer.create({
+      data: {
+        diaryEntryId,
+        questionType: QuestionType.DAILY,
+        groupQuestionId: null,
+        dailyQuestionId: dailyQuestion.id,
+        questionSnapshot: dailyQuestion.question,
+        body,
+      },
+    });
   }
 
   private async assertGroupExists(
