@@ -11,4 +11,8 @@ export interface EnvironmentVariables {
   EMAIL_FROM: string;
   FRONTEND_URL: string;
   OPENAI_API_KEY: string | undefined;
+  AWS_REGION: string;
+  AWS_S3_BUCKET: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
 }

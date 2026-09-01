@@ -158,6 +158,10 @@ export function validateEnvironment(
     EMAIL_FROM: readRequiredString(config, 'EMAIL_FROM'),
     FRONTEND_URL: readFrontendUrl(config, 'FRONTEND_URL', nodeEnvironment),
     OPENAI_API_KEY: readOptionalString(config, 'OPENAI_API_KEY'),
+    AWS_REGION: readRequiredString(config, 'AWS_REGION'),
+    AWS_S3_BUCKET: readRequiredString(config, 'AWS_S3_BUCKET'),
+    AWS_ACCESS_KEY_ID: readRequiredString(config, 'AWS_ACCESS_KEY_ID'),
+    AWS_SECRET_ACCESS_KEY: readRequiredString(config, 'AWS_SECRET_ACCESS_KEY'),
   };
 }
 

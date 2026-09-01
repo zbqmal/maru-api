@@ -21,11 +21,12 @@ model User {
   profileImageKey String?   @map("profile_image_key") @db.VarChar(255)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
-  sessions            Session[]
-  passwordResetTokens PasswordResetToken[]
-  groupMemberships    GroupMember[]
+  sessions              Session[]
+  passwordResetTokens   PasswordResetToken[]
+  groupMemberships      GroupMember[]
   createdGroupQuestions GroupQuestion[]
-  diaryEntries        DiaryEntry[]
+  diaryEntries          DiaryEntry[]
+  uploadedPhotos        Photo[]
 
   @@map("users")
 }
@@ -140,6 +141,7 @@ model DiaryEntry {
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   answers   Answer[]
+  photos    Photo[]
 
   @@unique([groupId, userId, diaryDate])
   @@index([groupId, diaryDate])
@@ -176,4 +178,23 @@ model DailyQuestion {
 
   @@unique([questionDate])
   @@map("daily_questions")
+}
+
+model Photo {
+  id               String     @id @default(cuid())
+  diaryEntryId     String     @map("diary_entry_id")
+  uploadedByUserId String     @map("uploaded_by_user_id")
+  storageKey       String     @unique @map("storage_key") @db.VarChar(255)
+  mimeType         String     @map("mime_type") @db.VarChar(100)
+  width            Int
+  height           Int
+  sizeBytes        Int        @map("size_bytes")
+  displayOrder     Int        @map("display_order")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  diaryEntry       DiaryEntry @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
+  uploadedByUser   User       @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([diaryEntryId, displayOrder])
+  @@index([uploadedByUserId])
+  @@map("photos")
 }

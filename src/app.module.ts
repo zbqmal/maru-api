@@ -11,6 +11,7 @@ import { HealthModule } from './modules/health/health.module';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ProfileModule } from './modules/profile/profile.module';
     ProfileModule,
     DiaryModule,
     DailyQuestionModule,
+    MediaModule,
   ],
 })
 export class AppModule {}
