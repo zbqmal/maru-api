@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { MediaService } from '../media.service';
 import { maxImageSizeBytes } from '../../../lib/constants/media.constants';
@@ -112,6 +112,60 @@ describe('MediaService', () => {
         ).rejects.toThrow(BadRequestException);
 
         expect(getSignedUrl).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('validateDiaryPhotoStorageKey', () => {
+      it('accepts keys generated for the requested diary entry and MIME type', () => {
+        expect(() =>
+          mediaService.validateDiaryPhotoStorageKey(
+            'entry_123',
+            'diary-entries/entry_123/photos/550e8400-e29b-41d4-a716-446655440000.png',
+            'image/png',
+          ),
+        ).not.toThrow();
+      });
+
+      it('rejects arbitrary keys outside the diary entry photo prefix', () => {
+        expect(() =>
+          mediaService.validateDiaryPhotoStorageKey(
+            'entry_123',
+            'profiles/user-123/550e8400-e29b-41d4-a716-446655440000.png',
+            'image/png',
+          ),
+        ).toThrow(BadRequestException);
+      });
+
+      it('rejects keys for another diary entry or mismatched extension', () => {
+        expect(() =>
+          mediaService.validateDiaryPhotoStorageKey(
+            'entry_123',
+            'diary-entries/other-entry/photos/550e8400-e29b-41d4-a716-446655440000.png',
+            'image/png',
+          ),
+        ).toThrow(BadRequestException);
+
+        expect(() =>
+          mediaService.validateDiaryPhotoStorageKey(
+            'entry_123',
+            'diary-entries/entry_123/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+            'image/png',
+          ),
+        ).toThrow(BadRequestException);
+      });
+    });
+
+    describe('deleteObject', () => {
+      it('deletes the requested S3 object from the media bucket', async () => {
+        const send = jest.fn().mockResolvedValue({});
+        mediaService = new MediaService({
+          bucket: 'maru-test-media',
+          client: { send },
+        } as never);
+
+        await mediaService.deleteObject('diary-entries/entry/photos/photo.jpg');
+
+        expect(send).toHaveBeenCalledWith(expect.any(DeleteObjectCommand));
       });
     });
   });

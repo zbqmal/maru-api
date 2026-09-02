@@ -22,6 +22,12 @@ describe('DiaryEntryService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
     },
+    photo: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+    },
     ...overrides,
   });
 
@@ -30,6 +36,12 @@ describe('DiaryEntryService', () => {
     diaryEntry: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
+    },
+    photo: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
     },
     answer: {
       findUnique: jest.fn(),
@@ -47,10 +59,17 @@ describe('DiaryEntryService', () => {
     findByDate: jest.fn(),
   };
 
+  const mediaService = {
+    validateImageUpload: jest.fn(),
+    validateDiaryPhotoStorageKey: jest.fn(),
+    deleteObject: jest.fn(),
+  };
+
   function makeService() {
     return new DiaryEntryService(
       prismaService as never,
       dailyQuestionService as never,
+      mediaService as never,
     );
   }
 
@@ -722,7 +741,10 @@ describe('DiaryEntryService', () => {
             diaryDate: date,
           },
         },
-        include: { answers: { orderBy: { createdAt: 'asc' } } },
+        include: {
+          answers: { orderBy: { createdAt: 'asc' } },
+          photos: { orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }] },
+        },
       });
     });
 
@@ -842,6 +864,7 @@ describe('DiaryEntryService', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       answers,
+      photos: [],
     });
 
     it('returns each member paired with their diary entry', async () => {
@@ -948,6 +971,148 @@ describe('DiaryEntryService', () => {
       await expect(
         makeService().assertEntryOwnedByUser('entry-1', 'group-1', 'user-1'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('registerPhotoForUser', () => {
+    it('registers a photo with the next display order', async () => {
+      const createdPhoto = {
+        id: 'photo-1',
+        diaryEntryId: 'entry-1',
+        uploadedByUserId: 'user-1',
+        storageKey:
+          'diary-entries/entry-1/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+        displayOrder: 2,
+        createdAt: new Date(),
+      };
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+      });
+      tx.photo.findUnique.mockResolvedValue(null);
+      tx.photo.findFirst.mockResolvedValue({ displayOrder: 1 });
+      tx.photo.create.mockResolvedValue(createdPhoto);
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      await expect(
+        makeService().registerPhotoForUser({
+          groupId: 'group-1',
+          diaryEntryId: 'entry-1',
+          userId: 'user-1',
+          storageKey:
+            'diary-entries/entry-1/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+          sizeBytes: 1024,
+        }),
+      ).resolves.toEqual(createdPhoto);
+
+      expect(mediaService.validateImageUpload).toHaveBeenCalledWith({
+        mimeType: 'image/jpeg',
+        sizeBytes: 1024,
+      });
+      expect(mediaService.validateDiaryPhotoStorageKey).toHaveBeenCalledWith(
+        'entry-1',
+        'diary-entries/entry-1/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+        'image/jpeg',
+      );
+      expect(tx.photo.create).toHaveBeenCalledWith({
+        data: {
+          diaryEntryId: 'entry-1',
+          uploadedByUserId: 'user-1',
+          storageKey:
+            'diary-entries/entry-1/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+          sizeBytes: 1024,
+          displayOrder: 2,
+        },
+      });
+    });
+
+    it('rejects duplicate storage keys', async () => {
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+      });
+      tx.photo.findUnique.mockResolvedValue({ id: 'photo-1' });
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      await expect(
+        makeService().registerPhotoForUser({
+          groupId: 'group-1',
+          diaryEntryId: 'entry-1',
+          userId: 'user-1',
+          storageKey:
+            'diary-entries/entry-1/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+          sizeBytes: 1024,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('deletePhotoForUser', () => {
+    it('deletes the S3 object and photo record for the owner', async () => {
+      prismaService.photo.findUnique.mockResolvedValue({
+        id: 'photo-1',
+        diaryEntryId: 'entry-1',
+        storageKey: 'diary-entries/entry-1/photos/photo.jpg',
+        diaryEntry: { id: 'entry-1', groupId: 'group-1', userId: 'user-1' },
+      });
+
+      await expect(
+        makeService().deletePhotoForUser(
+          'group-1',
+          'entry-1',
+          'user-1',
+          'photo-1',
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(mediaService.deleteObject).toHaveBeenCalledWith(
+        'diary-entries/entry-1/photos/photo.jpg',
+      );
+      expect(prismaService.photo.delete).toHaveBeenCalledWith({
+        where: { id: 'photo-1' },
+      });
+    });
+
+    it('rejects deleting another user’s photo', async () => {
+      prismaService.photo.findUnique.mockResolvedValue({
+        id: 'photo-1',
+        diaryEntryId: 'entry-1',
+        storageKey: 'diary-entries/entry-1/photos/photo.jpg',
+        diaryEntry: { id: 'entry-1', groupId: 'group-1', userId: 'other-user' },
+      });
+
+      await expect(
+        makeService().deletePhotoForUser(
+          'group-1',
+          'entry-1',
+          'user-1',
+          'photo-1',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mediaService.deleteObject).not.toHaveBeenCalled();
     });
   });
 });

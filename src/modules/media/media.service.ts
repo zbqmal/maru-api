@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { S3Service } from './s3.service';
@@ -69,6 +69,46 @@ export class MediaService {
     );
 
     return { uploadUrl, storageKey };
+  }
+
+  async deleteObject(storageKey: string): Promise<void> {
+    await this.s3Service.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.s3Service.bucket,
+        Key: storageKey,
+      }),
+    );
+  }
+
+  validateDiaryPhotoStorageKey(
+    diaryEntryId: string,
+    storageKey: string,
+    mimeType: string,
+  ): void {
+    const safeDiaryEntryId = this.validateIdentifier(
+      diaryEntryId,
+      'Diary entry',
+    );
+    const extension = this.extensionFor(mimeType);
+    const expectedPrefix = `diary-entries/${safeDiaryEntryId}/photos/`;
+
+    if (!storageKey.startsWith(expectedPrefix)) {
+      throw new BadRequestException(
+        'Photo storage key does not belong to this diary entry.',
+      );
+    }
+
+    const fileName = storageKey.slice(expectedPrefix.length);
+    const expectedSuffix = `.${extension}`;
+
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z]+$/.test(
+        fileName,
+      ) ||
+      !fileName.endsWith(expectedSuffix)
+    ) {
+      throw new BadRequestException('Photo storage key is invalid.');
+    }
   }
 
   private extensionFor(mimeType: string): string {
