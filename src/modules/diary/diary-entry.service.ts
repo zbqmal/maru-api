@@ -450,16 +450,6 @@ export class DiaryEntryService {
       );
     }
 
-    private validatePhotoDimensions(width: number, height: number): void {
-      if (!Number.isInteger(width) || width < 1) {
-        throw new BadRequestException('Photo width must be a positive integer.');
-      }
-
-      if (!Number.isInteger(height) || height < 1) {
-        throw new BadRequestException('Photo height must be a positive integer.');
-      }
-    }
-
     const groupQuestion = await this.findGroupQuestionBelongingToGroup(
       tx,
       input.groupQuestionId,
@@ -533,6 +523,16 @@ export class DiaryEntryService {
         body,
       },
     });
+  }
+
+  private validatePhotoDimensions(width: number, height: number): void {
+    if (!Number.isInteger(width) || width < 1) {
+      throw new BadRequestException('Photo width must be a positive integer.');
+    }
+
+    if (!Number.isInteger(height) || height < 1) {
+      throw new BadRequestException('Photo height must be a positive integer.');
+    }
   }
 
   private async assertGroupExists(
