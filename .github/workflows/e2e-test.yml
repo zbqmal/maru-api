@@ -35,6 +35,10 @@ jobs:
       EMAIL_FROM: e2e-test@example.com
       DATABASE_URL: postgresql://maru:maru@localhost:5432/maru_test
       TEST_DATABASE_URL: postgresql://maru:maru@localhost:5432/maru_test
+      AWS_REGION: aws-region-test
+      AWS_S3_BUCKET: aws-s3-bucket-test
+      AWS_ACCESS_KEY_ID: aws-access-key-id-test
+      AWS_SECRET_ACCESS_KEY: aws-secret-access-key-test
 
     steps:
       - uses: actions/checkout@v4

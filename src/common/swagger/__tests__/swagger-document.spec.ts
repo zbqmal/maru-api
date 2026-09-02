@@ -9,12 +9,20 @@ describe('createSwaggerDocument', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;
   const originalResendApiKey = process.env.RESEND_API_KEY;
   const originalEmailFrom = process.env.EMAIL_FROM;
+  const originalAwsRegion = process.env.AWS_REGION;
+  const originalAwsS3Bucket = process.env.AWS_S3_BUCKET;
+  const originalAwsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const originalAwsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'development';
     process.env.DATABASE_URL = 'postgresql://localhost:5432/maru_dev';
     process.env.RESEND_API_KEY = 're_test_key';
     process.env.EMAIL_FROM = 'noreply@example.com';
+    process.env.AWS_REGION = 'ap-northeast-2';
+    process.env.AWS_S3_BUCKET = 'maru-test-media';
+    process.env.AWS_ACCESS_KEY_ID = 'test-access-key';
+    process.env.AWS_SECRET_ACCESS_KEY = 'test-secret-key';
     const require = createRequire(__filename);
     const { AppModule } =
       require('../../../app.module') as typeof import('../../../app.module');
@@ -35,6 +43,10 @@ describe('createSwaggerDocument', () => {
     process.env.DATABASE_URL = originalDatabaseUrl;
     process.env.RESEND_API_KEY = originalResendApiKey;
     process.env.EMAIL_FROM = originalEmailFrom;
+    process.env.AWS_REGION = originalAwsRegion;
+    process.env.AWS_S3_BUCKET = originalAwsS3Bucket;
+    process.env.AWS_ACCESS_KEY_ID = originalAwsAccessKeyId;
+    process.env.AWS_SECRET_ACCESS_KEY = originalAwsSecretAccessKey;
   });
 
   it('includes the current API metadata and session cookie auth', () => {
