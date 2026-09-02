@@ -108,6 +108,22 @@ export class DiaryEntryService {
     return entry;
   }
 
+  async assertEntryOwnedByUser(
+    id: string,
+    groupId: string,
+    userId: string,
+  ): Promise<DiaryEntry> {
+    const entry = await this.findEntryById(id);
+
+    if (entry.groupId !== groupId || entry.userId !== userId) {
+      throw new ForbiddenException(
+        'You can only upload photos to your own diary entries.',
+      );
+    }
+
+    return entry;
+  }
+
   async createAnswer(input: CreateAnswerInput): Promise<Answer> {
     return this.prismaService.$transaction(
       async (tx: Prisma.TransactionClient) => {

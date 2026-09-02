@@ -1,11 +1,22 @@
 import { BadRequestException } from '@nestjs/common';
+import { S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { MediaService } from '../media.service';
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn(),
+}));
 
 describe('MediaService', () => {
   let mediaService: MediaService;
+  const s3Service = {
+    bucket: 'maru-test-media',
+    client: new S3Client({ region: 'ap-northeast-2' }),
+  };
 
   beforeEach(() => {
-    mediaService = new MediaService();
+    mediaService = new MediaService(s3Service);
+    jest.resetAllMocks();
   });
 
   describe('validateImageUpload', () => {
@@ -68,6 +79,39 @@ describe('MediaService', () => {
       expect(() =>
         mediaService.generateProfileImageStorageKey('../user', 'image/png'),
       ).toThrow(BadRequestException);
+    });
+
+    describe('createDiaryPhotoUpload', () => {
+      it('returns a signed URL and a server-generated storage key', async () => {
+        const signedUrl = 'https://maru-test-media.s3.amazonaws.com/upload';
+        jest.mocked(getSignedUrl).mockResolvedValue(signedUrl);
+
+        const result = await mediaService.createDiaryPhotoUpload('entry_123', {
+          mimeType: 'image/png',
+          sizeBytes: 1024,
+        });
+
+        expect(result.uploadUrl).toBe(signedUrl);
+        expect(result.storageKey).toMatch(
+          /^diary-entries\/entry_123\/photos\/[0-9a-f-]{36}\.png$/,
+        );
+        expect(getSignedUrl).toHaveBeenCalledWith(
+          s3Service.client,
+          expect.anything(),
+          { expiresIn: 300 },
+        );
+      });
+
+      it('rejects invalid image metadata before requesting a signed URL', async () => {
+        await expect(
+          mediaService.createDiaryPhotoUpload('entry_123', {
+            mimeType: 'image/gif',
+            sizeBytes: 1024,
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(getSignedUrl).not.toHaveBeenCalled();
+      });
     });
   });
 });

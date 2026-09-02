@@ -1283,6 +1283,73 @@
         ]
       }
     },
+    "/groups/{groupId}/diary/entries/{diaryEntryId}/photos/upload-url": {
+      "post": {
+        "description": "Returns a short-lived S3 URL for directly uploading a photo to a diary entry. Upload the image using the requested MIME type before the URL expires.",
+        "operationId": "DiaryController_requestDiaryPhotoUpload",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "diaryEntryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestDiaryPhotoUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Presigned diary photo upload URL created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignedUploadResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request payload is invalid or the image type or size is unsupported."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required or diary ownership is violated."
+          },
+          "404": {
+            "description": "Diary entry not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Request a presigned diary photo upload URL",
+        "tags": [
+          "Diary"
+        ]
+      }
+    },
     "/daily-question/today": {
       "get": {
         "description": "Returns the AI-generated global question for today (UTC date). Returns 404 if today's question has not been generated yet.",
@@ -2138,6 +2205,50 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "RequestDiaryPhotoUploadDto": {
+        "type": "object",
+        "properties": {
+          "mimeType": {
+            "type": "string",
+            "description": "Image MIME type.",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "example": "image/jpeg"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "description": "Image size in bytes.",
+            "minimum": 1,
+            "maximum": 10485760,
+            "example": 1048576
+          }
+        },
+        "required": [
+          "mimeType",
+          "sizeBytes"
+        ]
+      },
+      "PresignedUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "uploadUrl": {
+            "type": "string",
+            "description": "Short-lived S3 URL for directly uploading the image.",
+            "format": "uri"
+          },
+          "storageKey": {
+            "type": "string",
+            "description": "Server-generated S3 object key for the uploaded image."
+          }
+        },
+        "required": [
+          "uploadUrl",
+          "storageKey"
         ]
       }
     }
