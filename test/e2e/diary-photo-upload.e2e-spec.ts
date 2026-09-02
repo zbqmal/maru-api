@@ -1,4 +1,8 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
@@ -12,6 +16,9 @@ describe('Diary photo upload (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   const createDiaryPhotoUpload = jest.fn();
+  const validateImageUpload = jest.fn();
+  const validateDiaryPhotoStorageKey = jest.fn();
+  const deleteObject = jest.fn();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -20,7 +27,12 @@ describe('Diary photo upload (e2e)', () => {
       .overrideProvider(EmailService)
       .useValue({ send: jest.fn().mockResolvedValue(undefined) })
       .overrideProvider(MediaService)
-      .useValue({ createDiaryPhotoUpload })
+      .useValue({
+        createDiaryPhotoUpload,
+        validateImageUpload,
+        validateDiaryPhotoStorageKey,
+        deleteObject,
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -43,6 +55,13 @@ describe('Diary photo upload (e2e)', () => {
       uploadUrl: 'https://example.com/presigned-upload',
       storageKey: 'diary-entries/entry/photos/photo.jpg',
     });
+    validateDiaryPhotoStorageKey.mockImplementation(
+      (diaryEntryId: string, storageKey: string) => {
+        if (!storageKey.startsWith(`diary-entries/${diaryEntryId}/photos/`)) {
+          throw new BadRequestException('Photo storage key is invalid.');
+        }
+      },
+    );
     await prismaService.photo.deleteMany();
     await prismaService.answer.deleteMany();
     await prismaService.diaryEntry.deleteMany();
@@ -167,5 +186,144 @@ describe('Diary photo upload (e2e)', () => {
     expect(groupNonMember.status).toBe(403);
     expect(invalidPayload.status).toBe(400);
     expect(createDiaryPhotoUpload).not.toHaveBeenCalled();
+  });
+
+  it('registers uploaded photo metadata for the diary owner', async () => {
+    const user = await registerAndLogin('photo-register-owner@example.com');
+    const groupId = await createGroup(user.sessionCookie);
+    const entry = await prismaService.diaryEntry.create({
+      data: {
+        groupId,
+        userId: user.userId,
+        diaryDate: new Date('2026-08-26T00:00:00.000Z'),
+      },
+    });
+    const storageKey = `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`;
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(`/groups/${groupId}/diary/entries/${entry.id}/photos`)
+      .set('Cookie', user.sessionCookie)
+      .send({
+        storageKey,
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      diaryEntryId: entry.id,
+      uploadedByUserId: user.userId,
+      storageKey,
+      mimeType: 'image/jpeg',
+      width: 1200,
+      height: 900,
+      sizeBytes: 1024,
+      displayOrder: 0,
+    });
+  });
+
+  it('rejects duplicate, unowned, and invalid photo registration requests', async () => {
+    const [owner, member, nonMember] = await Promise.all([
+      registerAndLogin('photo-register-access-owner@example.com'),
+      registerAndLogin('photo-register-access-member@example.com'),
+      registerAndLogin('photo-register-access-non-member@example.com'),
+    ]);
+    const groupId = await createGroup(owner.sessionCookie);
+    await prismaService.groupMember.create({
+      data: { groupId, userId: member.userId, role: 'MEMBER' },
+    });
+    const entry = await prismaService.diaryEntry.create({
+      data: {
+        groupId,
+        userId: owner.userId,
+        diaryDate: new Date('2026-08-26T00:00:00.000Z'),
+      },
+    });
+    const storageKey = `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`;
+    const path = `/groups/${groupId}/diary/entries/${entry.id}/photos`;
+    const payload = {
+      storageKey,
+      mimeType: 'image/jpeg',
+      width: 1200,
+      height: 900,
+      sizeBytes: 1024,
+    };
+
+    const created = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(path)
+      .set('Cookie', owner.sessionCookie)
+      .send(payload);
+    const duplicate = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(path)
+      .set('Cookie', owner.sessionCookie)
+      .send(payload);
+    const nonOwner = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(path)
+      .set('Cookie', member.sessionCookie)
+      .send(payload);
+    const groupNonMember = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(path)
+      .set('Cookie', nonMember.sessionCookie)
+      .send(payload);
+    const invalidPayload = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .post(path)
+      .set('Cookie', owner.sessionCookie)
+      .send({ ...payload, storageKey: 'profiles/user/photo.jpg' });
+
+    expect(created.status).toBe(201);
+    expect(duplicate.status).toBe(409);
+    expect(nonOwner.status).toBe(403);
+    expect(groupNonMember.status).toBe(403);
+    expect(invalidPayload.status).toBe(400);
+  });
+
+  it('deletes owned diary photos and their S3 objects', async () => {
+    const user = await registerAndLogin('photo-delete-owner@example.com');
+    const groupId = await createGroup(user.sessionCookie);
+    const entry = await prismaService.diaryEntry.create({
+      data: {
+        groupId,
+        userId: user.userId,
+        diaryDate: new Date('2026-08-26T00:00:00.000Z'),
+      },
+    });
+    const photo = await prismaService.photo.create({
+      data: {
+        diaryEntryId: entry.id,
+        uploadedByUserId: user.userId,
+        storageKey: `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`,
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+        displayOrder: 0,
+      },
+    });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(`/groups/${groupId}/diary/entries/${entry.id}/photos/${photo.id}`)
+      .set('Cookie', user.sessionCookie);
+
+    expect(response.status).toBe(204);
+    expect(deleteObject).toHaveBeenCalledWith(photo.storageKey);
+    await expect(
+      prismaService.photo.findUnique({ where: { id: photo.id } }),
+    ).resolves.toBeNull();
   });
 });

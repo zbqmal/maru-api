@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -13,6 +16,7 @@ import {
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -42,6 +46,11 @@ import {
 import { UpdateAnswerDto } from './dto/update-answer.dto';
 import { RequestDiaryPhotoUploadDto } from './dto/request-diary-photo-upload.dto';
 import { PresignedUploadResponseDto } from './dto/presigned-upload-response.dto';
+import { RegisterDiaryPhotoDto } from './dto/register-diary-photo.dto';
+import {
+  PhotoResponseDto,
+  toPhotoResponseDto,
+} from './dto/photo-response.dto';
 
 @ApiTags('Diary')
 @ApiCookieAuth('session')
@@ -218,5 +227,67 @@ export class DiaryController {
     );
 
     return this.mediaService.createDiaryPhotoUpload(diaryEntryId, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Register uploaded diary photo metadata',
+    description:
+      'Registers metadata for a photo that was uploaded directly to S3 using a server-generated diary photo storage key.',
+  })
+  @ApiCreatedResponse({
+    description: 'Diary photo registered successfully.',
+    type: PhotoResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Request payload is invalid or the storage key does not belong to this diary entry.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Group membership required or diary ownership is violated.',
+  })
+  @ApiNotFoundResponse({ description: 'Diary entry not found.' })
+  @UseGuards(GroupMemberGuard)
+  @Post('entries/:diaryEntryId/photos')
+  async registerDiaryPhoto(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Param('diaryEntryId') diaryEntryId: string,
+    @Body() dto: RegisterDiaryPhotoDto,
+  ): Promise<PhotoResponseDto> {
+    const photo = await this.diaryEntryService.registerPhotoForUser({
+      groupId,
+      diaryEntryId,
+      userId: user.id,
+      storageKey: dto.storageKey,
+      mimeType: dto.mimeType,
+      width: dto.width,
+      height: dto.height,
+      sizeBytes: dto.sizeBytes,
+    });
+
+    return toPhotoResponseDto(photo);
+  }
+
+  @ApiOperation({ summary: 'Delete a diary photo' })
+  @ApiNoContentResponse({ description: 'Diary photo deleted successfully.' })
+  @ApiForbiddenResponse({
+    description: 'Group membership required or diary ownership is violated.',
+  })
+  @ApiNotFoundResponse({ description: 'Photo not found.' })
+  @UseGuards(GroupMemberGuard)
+  @Delete('entries/:diaryEntryId/photos/:photoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteDiaryPhoto(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Param('diaryEntryId') diaryEntryId: string,
+    @Param('photoId') photoId: string,
+  ): Promise<void> {
+    await this.diaryEntryService.deletePhotoForUser(
+      groupId,
+      diaryEntryId,
+      user.id,
+      photoId,
+    );
   }
 }

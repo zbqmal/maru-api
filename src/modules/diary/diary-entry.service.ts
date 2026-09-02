@@ -11,18 +11,20 @@ import {
   DiaryEntry,
   GroupMember,
   GroupQuestion,
+  Photo,
   Prisma,
   QuestionType,
   User,
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { DailyQuestionService } from '../daily-question/daily-question.service';
+import { MediaService } from '../media/media.service';
 
 type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 
 export type MembershipWithUserAndEntry = GroupMember & {
   user: UserSummary;
-  entry: (DiaryEntry & { answers: Answer[] }) | null;
+  entry: (DiaryEntry & { answers: Answer[]; photos: Photo[] }) | null;
 };
 
 export interface CreateDiaryEntryInput {
@@ -55,7 +57,18 @@ export interface UpdateAnswerInput {
 export interface DiaryContext {
   questions: GroupQuestion[];
   dailyQuestion: DailyQuestion | null;
-  entry: (DiaryEntry & { answers: Answer[] }) | null;
+  entry: (DiaryEntry & { answers: Answer[]; photos: Photo[] }) | null;
+}
+
+export interface RegisterPhotoForUserInput {
+  groupId: string;
+  diaryEntryId: string;
+  userId: string;
+  storageKey: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
 }
 
 @Injectable()
@@ -63,6 +76,7 @@ export class DiaryEntryService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly dailyQuestionService: DailyQuestionService,
+    private readonly mediaService: MediaService,
   ) {}
 
   async findOrCreateEntry(input: CreateDiaryEntryInput): Promise<DiaryEntry> {
@@ -290,7 +304,10 @@ export class DiaryEntryService {
       }),
       this.prismaService.diaryEntry.findMany({
         where: { groupId, diaryDate: date },
-        include: { answers: { orderBy: { createdAt: 'asc' } } },
+        include: {
+          answers: { orderBy: { createdAt: 'asc' } },
+          photos: { orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }] },
+        },
       }),
     ]);
 
@@ -321,11 +338,105 @@ export class DiaryEntryService {
             diaryDate: date,
           },
         },
-        include: { answers: { orderBy: { createdAt: 'asc' } } },
+        include: {
+          answers: { orderBy: { createdAt: 'asc' } },
+          photos: { orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }] },
+        },
       }),
     ]);
 
     return { questions, dailyQuestion, entry };
+  }
+
+  async registerPhotoForUser(input: RegisterPhotoForUserInput): Promise<Photo> {
+    this.mediaService.validateImageUpload({
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+    });
+    this.validatePhotoDimensions(input.width, input.height);
+    this.mediaService.validateDiaryPhotoStorageKey(
+      input.diaryEntryId,
+      input.storageKey,
+      input.mimeType,
+    );
+
+    return this.prismaService.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const entry = await tx.diaryEntry.findUnique({
+          where: { id: input.diaryEntryId },
+          select: { id: true, groupId: true, userId: true },
+        });
+
+        if (!entry) {
+          throw new NotFoundException('Diary entry not found.');
+        }
+
+        if (entry.groupId !== input.groupId || entry.userId !== input.userId) {
+          throw new ForbiddenException(
+            'You can only register photos for your own diary entries.',
+          );
+        }
+
+        const duplicate = await tx.photo.findUnique({
+          where: { storageKey: input.storageKey },
+          select: { id: true },
+        });
+
+        if (duplicate) {
+          throw new ConflictException(
+            'A photo with this storage key is already registered.',
+          );
+        }
+
+        const latestPhoto = await tx.photo.findFirst({
+          where: { diaryEntryId: input.diaryEntryId },
+          orderBy: { displayOrder: 'desc' },
+          select: { displayOrder: true },
+        });
+
+        return tx.photo.create({
+          data: {
+            diaryEntryId: input.diaryEntryId,
+            uploadedByUserId: input.userId,
+            storageKey: input.storageKey,
+            mimeType: input.mimeType,
+            width: input.width,
+            height: input.height,
+            sizeBytes: input.sizeBytes,
+            displayOrder: (latestPhoto?.displayOrder ?? -1) + 1,
+          },
+        });
+      },
+    );
+  }
+
+  async deletePhotoForUser(
+    groupId: string,
+    diaryEntryId: string,
+    userId: string,
+    photoId: string,
+  ): Promise<void> {
+    const photo = await this.prismaService.photo.findUnique({
+      where: { id: photoId },
+      include: {
+        diaryEntry: {
+          select: { id: true, groupId: true, userId: true },
+        },
+      },
+    });
+
+    if (!photo || photo.diaryEntryId !== diaryEntryId) {
+      throw new NotFoundException('Photo not found.');
+    }
+
+    if (photo.diaryEntry.groupId !== groupId || photo.diaryEntry.userId !== userId) {
+      throw new ForbiddenException(
+        'You can only delete photos from your own diary entries.',
+      );
+    }
+
+    await this.mediaService.deleteObject(photo.storageKey);
+    await this.prismaService.photo.delete({ where: { id: photoId } });
   }
 
   private async createCustomAnswer(
@@ -337,6 +448,16 @@ export class DiaryEntryService {
       throw new BadRequestException(
         'groupQuestionId is required for CUSTOM question type.',
       );
+    }
+
+    private validatePhotoDimensions(width: number, height: number): void {
+      if (!Number.isInteger(width) || width < 1) {
+        throw new BadRequestException('Photo width must be a positive integer.');
+      }
+
+      if (!Number.isInteger(height) || height < 1) {
+        throw new BadRequestException('Photo height must be a positive integer.');
+      }
     }
 
     const groupQuestion = await this.findGroupQuestionBelongingToGroup(

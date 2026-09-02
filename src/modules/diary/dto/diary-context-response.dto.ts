@@ -4,6 +4,7 @@ import {
   DailyQuestion,
   DiaryEntry,
   GroupQuestion,
+  Photo,
 } from '@prisma/client';
 import {
   GroupQuestionResponseDto,
@@ -14,6 +15,7 @@ import {
   DailyQuestionResponseDto,
   toDailyQuestionResponseDto,
 } from '../../daily-question/dto/daily-question-response.dto';
+import { PhotoResponseDto, toPhotoResponseDto } from './photo-response.dto';
 
 export class DiaryEntryContextDto {
   @ApiProperty()
@@ -24,6 +26,9 @@ export class DiaryEntryContextDto {
 
   @ApiProperty({ type: () => AnswerResponseDto, isArray: true })
   answers!: AnswerResponseDto[];
+
+  @ApiProperty({ type: () => PhotoResponseDto, isArray: true })
+  photos!: PhotoResponseDto[];
 
   @ApiProperty()
   createdAt!: string;
@@ -46,7 +51,7 @@ export class DiaryContextResponseDto {
 export function toDiaryContextResponseDto(
   questions: GroupQuestion[],
   dailyQuestion: DailyQuestion | null,
-  entry: (DiaryEntry & { answers: Answer[] }) | null,
+  entry: (DiaryEntry & { answers: Answer[]; photos: Photo[] }) | null,
 ): DiaryContextResponseDto {
   return {
     questions: questions.map(toGroupQuestionResponseDto),
@@ -58,6 +63,7 @@ export function toDiaryContextResponseDto(
           id: entry.id,
           diaryDate: entry.diaryDate.toISOString().split('T')[0],
           answers: entry.answers.map(toAnswerResponseDto),
+          photos: entry.photos.map(toPhotoResponseDto),
           createdAt: entry.createdAt.toISOString(),
           updatedAt: entry.updatedAt.toISOString(),
         }

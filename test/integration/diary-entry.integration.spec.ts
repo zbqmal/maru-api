@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -14,6 +15,7 @@ import { GroupModule } from '../../src/modules/group/group.module';
 import { GroupMembershipService } from '../../src/modules/group/group-membership.service';
 import { GroupQuestionService } from '../../src/modules/group/group-question.service';
 import { GroupService } from '../../src/modules/group/group.service';
+import { MediaService } from '../../src/modules/media/media.service';
 
 process.env.NODE_ENV = 'test';
 process.env.TEST_DATABASE_URL ??= process.env.DATABASE_URL;
@@ -24,6 +26,11 @@ describe('DiaryEntryService (integration)', () => {
   let groupMembershipService: GroupMembershipService;
   let groupQuestionService: GroupQuestionService;
   let diaryEntryService: DiaryEntryService;
+  const mediaService = {
+    validateImageUpload: jest.fn(),
+    validateDiaryPhotoStorageKey: jest.fn(),
+    deleteObject: jest.fn(),
+  };
 
   beforeAll(async () => {
     if (!process.env.TEST_DATABASE_URL) {
@@ -43,7 +50,10 @@ describe('DiaryEntryService (integration)', () => {
         GroupModule,
         DiaryModule,
       ],
-    }).compile();
+    })
+      .overrideProvider(MediaService)
+      .useValue(mediaService)
+      .compile();
 
     prismaService = moduleRef.get(PrismaService);
     groupService = moduleRef.get(GroupService);
@@ -53,7 +63,16 @@ describe('DiaryEntryService (integration)', () => {
   });
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+    mediaService.validateDiaryPhotoStorageKey.mockImplementation(
+      (diaryEntryId: string, storageKey: string) => {
+        if (!storageKey.startsWith(`diary-entries/${diaryEntryId}/photos/`)) {
+          throw new BadRequestException('Photo storage key is invalid.');
+        }
+      },
+    );
     await prismaService.answer.deleteMany();
+    await prismaService.photo.deleteMany();
     await prismaService.diaryEntry.deleteMany();
     await prismaService.groupQuestion.deleteMany();
     await prismaService.group.deleteMany();
@@ -720,6 +739,125 @@ describe('DiaryEntryService (integration)', () => {
       expect(leaderRow?.user).toMatchObject({
         id: leader.id,
         name: leader.name,
+      });
+    });
+
+    describe('photo registration and deletion', () => {
+      it('registers uploaded photo metadata for the entry owner', async () => {
+        const { leader, group, diaryDate } = await createFixture();
+        const entry = await diaryEntryService.findOrCreateEntry({
+          groupId: group.id,
+          userId: leader.id,
+          diaryDate,
+        });
+        const storageKey = `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`;
+
+        const photo = await diaryEntryService.registerPhotoForUser({
+          groupId: group.id,
+          diaryEntryId: entry.id,
+          userId: leader.id,
+          storageKey,
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+          sizeBytes: 1024,
+        });
+
+        expect(photo).toMatchObject({
+          diaryEntryId: entry.id,
+          uploadedByUserId: leader.id,
+          storageKey,
+          displayOrder: 0,
+        });
+        await expect(
+          prismaService.photo.findUnique({ where: { id: photo.id } }),
+        ).resolves.not.toBeNull();
+      });
+
+      it('prevents duplicate or foreign storage key registration', async () => {
+        const { leader, member, group, diaryDate } = await createFixture();
+        const [leaderEntry, memberEntry] = await Promise.all([
+          diaryEntryService.findOrCreateEntry({
+            groupId: group.id,
+            userId: leader.id,
+            diaryDate,
+          }),
+          diaryEntryService.findOrCreateEntry({
+            groupId: group.id,
+            userId: member.id,
+            diaryDate,
+          }),
+        ]);
+        const storageKey = `diary-entries/${leaderEntry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`;
+
+        await diaryEntryService.registerPhotoForUser({
+          groupId: group.id,
+          diaryEntryId: leaderEntry.id,
+          userId: leader.id,
+          storageKey,
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+          sizeBytes: 1024,
+        });
+
+        await expect(
+          diaryEntryService.registerPhotoForUser({
+            groupId: group.id,
+            diaryEntryId: leaderEntry.id,
+            userId: leader.id,
+            storageKey,
+            mimeType: 'image/jpeg',
+            width: 1200,
+            height: 900,
+            sizeBytes: 1024,
+          }),
+        ).rejects.toBeInstanceOf(ConflictException);
+
+        await expect(
+          diaryEntryService.registerPhotoForUser({
+            groupId: group.id,
+            diaryEntryId: memberEntry.id,
+            userId: member.id,
+            storageKey,
+            mimeType: 'image/jpeg',
+            width: 1200,
+            height: 900,
+            sizeBytes: 1024,
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('deletes owned photo metadata and its S3 object', async () => {
+        const { leader, group, diaryDate } = await createFixture();
+        const entry = await diaryEntryService.findOrCreateEntry({
+          groupId: group.id,
+          userId: leader.id,
+          diaryDate,
+        });
+        const storageKey = `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`;
+        const photo = await diaryEntryService.registerPhotoForUser({
+          groupId: group.id,
+          diaryEntryId: entry.id,
+          userId: leader.id,
+          storageKey,
+          mimeType: 'image/jpeg',
+          width: 1200,
+          height: 900,
+          sizeBytes: 1024,
+        });
+
+        await diaryEntryService.deletePhotoForUser(
+          group.id,
+          entry.id,
+          leader.id,
+          photo.id,
+        );
+
+        expect(mediaService.deleteObject).toHaveBeenCalledWith(storageKey);
+        await expect(
+          prismaService.photo.findUnique({ where: { id: photo.id } }),
+        ).resolves.toBeNull();
       });
     });
   });
