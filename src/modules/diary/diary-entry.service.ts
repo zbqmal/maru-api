@@ -429,7 +429,10 @@ export class DiaryEntryService {
       throw new NotFoundException('Photo not found.');
     }
 
-    if (photo.diaryEntry.groupId !== groupId || photo.diaryEntry.userId !== userId) {
+    if (
+      photo.diaryEntry.groupId !== groupId ||
+      photo.diaryEntry.userId !== userId
+    ) {
       throw new ForbiddenException(
         'You can only delete photos from your own diary entries.',
       );

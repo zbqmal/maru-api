@@ -8,7 +8,8 @@ import {
 export class RegisterDiaryPhotoDto {
   @ApiProperty({
     description: 'Server-generated S3 object key returned by upload-url.',
-    example: 'diary-entries/entry-id/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
+    example:
+      'diary-entries/entry-id/photos/550e8400-e29b-41d4-a716-446655440000.jpg',
   })
   @IsString()
   @IsNotEmpty()

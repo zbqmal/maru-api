@@ -85,7 +85,10 @@ export class MediaService {
     storageKey: string,
     mimeType: string,
   ): void {
-    const safeDiaryEntryId = this.validateIdentifier(diaryEntryId, 'Diary entry');
+    const safeDiaryEntryId = this.validateIdentifier(
+      diaryEntryId,
+      'Diary entry',
+    );
     const extension = this.extensionFor(mimeType);
     const expectedPrefix = `diary-entries/${safeDiaryEntryId}/photos/`;
 

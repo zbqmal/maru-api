@@ -47,10 +47,7 @@ import { UpdateAnswerDto } from './dto/update-answer.dto';
 import { RequestDiaryPhotoUploadDto } from './dto/request-diary-photo-upload.dto';
 import { PresignedUploadResponseDto } from './dto/presigned-upload-response.dto';
 import { RegisterDiaryPhotoDto } from './dto/register-diary-photo.dto';
-import {
-  PhotoResponseDto,
-  toPhotoResponseDto,
-} from './dto/photo-response.dto';
+import { PhotoResponseDto, toPhotoResponseDto } from './dto/photo-response.dto';
 
 @ApiTags('Diary')
 @ApiCookieAuth('session')
