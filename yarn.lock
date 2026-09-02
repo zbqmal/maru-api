@@ -287,6 +287,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aws-sdk/s3-request-presigner@npm:3.1123.0":
+  version: 3.1123.0
+  resolution: "@aws-sdk/s3-request-presigner@npm:3.1123.0"
+  dependencies:
+    "@aws-sdk/core": "npm:^3.977.9"
+    "@aws-sdk/signature-v4-multi-region": "npm:^3.996.46"
+    "@aws-sdk/types": "npm:^3.974.5"
+    "@smithy/core": "npm:^3.33.3"
+    "@smithy/types": "npm:^4.17.2"
+    tslib: "npm:^2.6.2"
+  checksum: 10c0/5e6af5d76ece507e4a3aa8fb4b469c1ec19729dccc18f705642bfd5f4661d929ba015f92d4365654b5f2764e0ccf907839f32c77881a844fa7963b4a457592ff
+  languageName: node
+  linkType: hard
+
 "@aws-sdk/signature-v4-multi-region@npm:^3.996.46":
   version: 3.996.46
   resolution: "@aws-sdk/signature-v4-multi-region@npm:3.996.46"
@@ -5781,6 +5795,7 @@ __metadata:
   resolution: "maru-api@workspace:."
   dependencies:
     "@aws-sdk/client-s3": "npm:3.1123.0"
+    "@aws-sdk/s3-request-presigner": "npm:3.1123.0"
     "@eslint/eslintrc": "npm:^3.2.0"
     "@eslint/js": "npm:^9.18.0"
     "@nestjs/cli": "npm:^11.0.0"

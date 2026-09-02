@@ -917,4 +917,37 @@ describe('DiaryEntryService', () => {
       expect(result[0].user).toMatchObject({ id: 'user-1', name: 'Alice' });
     });
   });
+
+  describe('assertEntryOwnedByUser', () => {
+    it('returns an entry owned by the user in the requested group', async () => {
+      const entry = {
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'user-1',
+        diaryDate: new Date('2024-01-01'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      prismaService.diaryEntry.findUnique.mockResolvedValue(entry);
+
+      await expect(
+        makeService().assertEntryOwnedByUser('entry-1', 'group-1', 'user-1'),
+      ).resolves.toEqual(entry);
+    });
+
+    it('rejects a diary entry owned by another user or group', async () => {
+      prismaService.diaryEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'other-user',
+        diaryDate: new Date('2024-01-01'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        makeService().assertEntryOwnedByUser('entry-1', 'group-1', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
 });
