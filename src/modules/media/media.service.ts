@@ -3,14 +3,11 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { S3Service } from './s3.service';
-
-const MIME_TYPE_EXTENSIONS = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-} as const;
-
-export type SupportedImageMimeType = keyof typeof MIME_TYPE_EXTENSIONS;
+import { SupportedImageMimeType } from '../../lib/types/media.types';
+import {
+  maxImageSizeBytes,
+  MIME_TYPE_EXTENSIONS,
+} from '../../lib/constants/media.constants';
 
 export interface ImageUploadMetadata {
   mimeType: string;
@@ -24,11 +21,6 @@ export interface PresignedUpload {
 
 @Injectable()
 export class MediaService {
-  static readonly maxImageSizeBytes = 10 * 1024 * 1024;
-  static readonly supportedImageMimeTypes = Object.keys(
-    MIME_TYPE_EXTENSIONS,
-  ) as SupportedImageMimeType[];
-
   constructor(private readonly s3Service: S3Service) {}
 
   validateImageUpload({ mimeType, sizeBytes }: ImageUploadMetadata): void {
@@ -42,7 +34,7 @@ export class MediaService {
       throw new BadRequestException('Image size must be a positive integer.');
     }
 
-    if (sizeBytes > MediaService.maxImageSizeBytes) {
+    if (sizeBytes > maxImageSizeBytes) {
       throw new BadRequestException('Image size must not exceed 10 MiB.');
     }
   }

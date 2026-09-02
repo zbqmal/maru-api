@@ -1,26 +1,29 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
-import { MediaService } from '../../media/media.service';
+import {
+  maxImageSizeBytes,
+  supportedImageMimeTypes,
+} from '../../../lib/constants/media.constants';
 
 export class RequestDiaryPhotoUploadDto {
   @ApiProperty({
     description: 'Image MIME type.',
-    enum: MediaService.supportedImageMimeTypes,
+    enum: supportedImageMimeTypes,
     example: 'image/jpeg',
   })
   @IsString()
   @IsNotEmpty()
-  @IsIn(MediaService.supportedImageMimeTypes)
+  @IsIn(supportedImageMimeTypes)
   mimeType!: string;
 
   @ApiProperty({
     description: 'Image size in bytes.',
     minimum: 1,
-    maximum: MediaService.maxImageSizeBytes,
+    maximum: maxImageSizeBytes,
     example: 1048576,
   })
   @IsInt()
   @Min(1)
-  @Max(MediaService.maxImageSizeBytes)
+  @Max(maxImageSizeBytes)
   sizeBytes!: number;
 }
