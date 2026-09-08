@@ -6,6 +6,8 @@ import { maxImageSizeBytes } from '../../lib/constants/media.constants';
 import {
   extensionFor,
   generateDiaryPhotoStorageKey,
+  generateGroupImageStorageKey,
+  generateProfileImageStorageKey,
   isSupportedImageMimeType,
   validateIdentifier,
 } from './media.utils';
@@ -79,6 +81,26 @@ export class MediaService {
     return { uploadUrl, storageKey };
   }
 
+  createProfileImageUpload(
+    userId: string,
+    metadata: ImageUploadMetadata,
+  ): Promise<PresignedUpload> {
+    return this.createImageUpload(
+      generateProfileImageStorageKey(userId, metadata.mimeType),
+      metadata,
+    );
+  }
+
+  createGroupImageUpload(
+    groupId: string,
+    metadata: ImageUploadMetadata,
+  ): Promise<PresignedUpload> {
+    return this.createImageUpload(
+      generateGroupImageStorageKey(groupId, metadata.mimeType),
+      metadata,
+    );
+  }
+
   async deleteObject(storageKey: string): Promise<void> {
     await this.s3Service.client.send(
       new DeleteObjectCommand({
@@ -113,6 +135,81 @@ export class MediaService {
       !fileName.endsWith(expectedSuffix)
     ) {
       throw new BadRequestException('Photo storage key is invalid.');
+    }
+  }
+
+  validateProfileImageStorageKey(
+    userId: string,
+    storageKey: string,
+    mimeType: string,
+  ): void {
+    this.validateImageStorageKey(
+      'profiles',
+      userId,
+      'User',
+      storageKey,
+      mimeType,
+    );
+  }
+
+  validateGroupImageStorageKey(
+    groupId: string,
+    storageKey: string,
+    mimeType: string,
+  ): void {
+    this.validateImageStorageKey(
+      'groups',
+      groupId,
+      'Group',
+      storageKey,
+      mimeType,
+    );
+  }
+
+  private async createImageUpload(
+    storageKey: string,
+    metadata: ImageUploadMetadata,
+  ): Promise<PresignedUpload> {
+    this.validateImageUpload(metadata);
+    const uploadUrl = await getSignedUrl(
+      this.s3Service.client,
+      new PutObjectCommand({
+        Bucket: this.s3Service.bucket,
+        Key: storageKey,
+        ContentType: metadata.mimeType,
+        ContentLength: metadata.sizeBytes,
+      }),
+      { expiresIn: 300 },
+    );
+
+    return { uploadUrl, storageKey };
+  }
+
+  private validateImageStorageKey(
+    resource: 'profiles' | 'groups',
+    resourceId: string,
+    label: string,
+    storageKey: string,
+    mimeType: string,
+  ): void {
+    const safeResourceId = validateIdentifier(resourceId, label);
+    const extension = extensionFor(mimeType);
+    const expectedPrefix = `${resource}/${safeResourceId}/`;
+
+    if (!storageKey.startsWith(expectedPrefix)) {
+      throw new BadRequestException(
+        `Image storage key does not belong to this ${label.toLowerCase()}.`,
+      );
+    }
+
+    const fileName = storageKey.slice(expectedPrefix.length);
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z]+$/.test(
+        fileName,
+      ) ||
+      !fileName.endsWith(`.${extension}`)
+    ) {
+      throw new BadRequestException('Image storage key is invalid.');
     }
   }
 }
