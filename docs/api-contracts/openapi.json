@@ -1350,6 +1350,127 @@
         ]
       }
     },
+    "/groups/{groupId}/diary/entries/{diaryEntryId}/photos": {
+      "post": {
+        "description": "Registers metadata for a photo that was uploaded directly to S3 using a server-generated diary photo storage key.",
+        "operationId": "DiaryController_registerDiaryPhoto",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "diaryEntryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDiaryPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Diary photo registered successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request payload is invalid or the storage key does not belong to this diary entry."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required or diary ownership is violated."
+          },
+          "404": {
+            "description": "Diary entry not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Register uploaded diary photo metadata",
+        "tags": [
+          "Diary"
+        ]
+      }
+    },
+    "/groups/{groupId}/diary/entries/{diaryEntryId}/photos/{photoId}": {
+      "delete": {
+        "operationId": "DiaryController_deleteDiaryPhoto",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "diaryEntryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Diary photo deleted successfully."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required or diary ownership is violated."
+          },
+          "404": {
+            "description": "Photo not found."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Delete a diary photo",
+        "tags": [
+          "Diary"
+        ]
+      }
+    },
     "/daily-question/today": {
       "get": {
         "description": "Returns the AI-generated global question for today (UTC date). Returns 404 if today's question has not been generated yet.",
@@ -2001,6 +2122,53 @@
           "updatedAt"
         ]
       },
+      "PhotoResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "diaryEntryId": {
+            "type": "string"
+          },
+          "uploadedByUserId": {
+            "type": "string"
+          },
+          "storageKey": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "diaryEntryId",
+          "uploadedByUserId",
+          "storageKey",
+          "mimeType",
+          "width",
+          "height",
+          "sizeBytes",
+          "displayOrder",
+          "createdAt"
+        ]
+      },
       "DiaryEntryContextDto": {
         "type": "object",
         "properties": {
@@ -2017,6 +2185,12 @@
               "$ref": "#/components/schemas/AnswerResponseDto"
             }
           },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhotoResponseDto"
+            }
+          },
           "createdAt": {
             "type": "string"
           },
@@ -2028,6 +2202,7 @@
           "id",
           "diaryDate",
           "answers",
+          "photos",
           "createdAt",
           "updatedAt"
         ]
@@ -2099,6 +2274,12 @@
               "$ref": "#/components/schemas/AnswerResponseDto"
             }
           },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhotoResponseDto"
+            }
+          },
           "createdAt": {
             "type": "string"
           },
@@ -2110,6 +2291,7 @@
           "id",
           "diaryDate",
           "answers",
+          "photos",
           "createdAt",
           "updatedAt"
         ]
@@ -2249,6 +2431,52 @@
         "required": [
           "uploadUrl",
           "storageKey"
+        ]
+      },
+      "RegisterDiaryPhotoDto": {
+        "type": "object",
+        "properties": {
+          "storageKey": {
+            "type": "string",
+            "description": "Server-generated S3 object key returned by upload-url.",
+            "example": "diary-entries/entry-id/photos/550e8400-e29b-41d4-a716-446655440000.jpg"
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "Uploaded image MIME type.",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "example": "image/jpeg"
+          },
+          "width": {
+            "type": "number",
+            "description": "Uploaded image width in pixels.",
+            "minimum": 1,
+            "example": 1200
+          },
+          "height": {
+            "type": "number",
+            "description": "Uploaded image height in pixels.",
+            "minimum": 1,
+            "example": 900
+          },
+          "sizeBytes": {
+            "type": "number",
+            "description": "Uploaded image size in bytes.",
+            "minimum": 1,
+            "maximum": 10485760,
+            "example": 1048576
+          }
+        },
+        "required": [
+          "storageKey",
+          "mimeType",
+          "width",
+          "height",
+          "sizeBytes"
         ]
       }
     }

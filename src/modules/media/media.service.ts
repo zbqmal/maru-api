@@ -1,17 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { randomUUID } from 'node:crypto';
 import { S3Service } from './s3.service';
-import { SupportedImageMimeType } from '../../lib/types/media.types';
+import { maxImageSizeBytes } from '../../lib/constants/media.constants';
 import {
-  maxImageSizeBytes,
-  MIME_TYPE_EXTENSIONS,
-} from '../../lib/constants/media.constants';
+  extensionFor,
+  generateDiaryPhotoStorageKey,
+  isSupportedImageMimeType,
+  validateIdentifier,
+} from './media.utils';
 
 export interface ImageUploadMetadata {
   mimeType: string;
   sizeBytes: number;
+  width?: number;
+  height?: number;
 }
 
 export interface PresignedUpload {
@@ -23,8 +26,13 @@ export interface PresignedUpload {
 export class MediaService {
   constructor(private readonly s3Service: S3Service) {}
 
-  validateImageUpload({ mimeType, sizeBytes }: ImageUploadMetadata): void {
-    if (!this.isSupportedImageMimeType(mimeType)) {
+  validateImageUpload({
+    mimeType,
+    sizeBytes,
+    width,
+    height,
+  }: ImageUploadMetadata): void {
+    if (!isSupportedImageMimeType(mimeType)) {
       throw new BadRequestException(
         'Only JPEG, PNG, and WebP images are supported.',
       );
@@ -37,14 +45,14 @@ export class MediaService {
     if (sizeBytes > maxImageSizeBytes) {
       throw new BadRequestException('Image size must not exceed 10 MiB.');
     }
-  }
 
-  generateDiaryPhotoStorageKey(diaryEntryId: string, mimeType: string): string {
-    return `diary-entries/${this.validateIdentifier(diaryEntryId, 'Diary entry')}/photos/${randomUUID()}.${this.extensionFor(mimeType)}`;
-  }
+    if (width !== undefined && (!Number.isInteger(width) || width < 1)) {
+      throw new BadRequestException('Photo width must be a positive integer.');
+    }
 
-  generateProfileImageStorageKey(userId: string, mimeType: string): string {
-    return `profiles/${this.validateIdentifier(userId, 'User')}/${randomUUID()}.${this.extensionFor(mimeType)}`;
+    if (height !== undefined && (!Number.isInteger(height) || height < 1)) {
+      throw new BadRequestException('Photo height must be a positive integer.');
+    }
   }
 
   async createDiaryPhotoUpload(
@@ -53,7 +61,7 @@ export class MediaService {
   ): Promise<PresignedUpload> {
     this.validateImageUpload(metadata);
 
-    const storageKey = this.generateDiaryPhotoStorageKey(
+    const storageKey = generateDiaryPhotoStorageKey(
       diaryEntryId,
       metadata.mimeType,
     );
@@ -71,27 +79,40 @@ export class MediaService {
     return { uploadUrl, storageKey };
   }
 
-  private extensionFor(mimeType: string): string {
-    if (!this.isSupportedImageMimeType(mimeType)) {
+  async deleteObject(storageKey: string): Promise<void> {
+    await this.s3Service.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.s3Service.bucket,
+        Key: storageKey,
+      }),
+    );
+  }
+
+  validateDiaryPhotoStorageKey(
+    diaryEntryId: string,
+    storageKey: string,
+    mimeType: string,
+  ): void {
+    const safeDiaryEntryId = validateIdentifier(diaryEntryId, 'Diary entry');
+    const extension = extensionFor(mimeType);
+    const expectedPrefix = `diary-entries/${safeDiaryEntryId}/photos/`;
+
+    if (!storageKey.startsWith(expectedPrefix)) {
       throw new BadRequestException(
-        'Only JPEG, PNG, and WebP images are supported.',
+        'Photo storage key does not belong to this diary entry.',
       );
     }
 
-    return MIME_TYPE_EXTENSIONS[mimeType];
-  }
+    const fileName = storageKey.slice(expectedPrefix.length);
+    const expectedSuffix = `.${extension}`;
 
-  private isSupportedImageMimeType(
-    mimeType: string,
-  ): mimeType is SupportedImageMimeType {
-    return mimeType in MIME_TYPE_EXTENSIONS;
-  }
-
-  private validateIdentifier(identifier: string, label: string): string {
-    if (!/^[A-Za-z0-9_-]+$/.test(identifier)) {
-      throw new BadRequestException(`${label} ID is invalid.`);
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z]+$/.test(
+        fileName,
+      ) ||
+      !fileName.endsWith(expectedSuffix)
+    ) {
+      throw new BadRequestException('Photo storage key is invalid.');
     }
-
-    return identifier;
   }
 }

@@ -1,11 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Answer, DiaryEntry, GroupMember, User } from '@prisma/client';
+import { Answer, DiaryEntry, GroupMember, Photo, User } from '@prisma/client';
 import { AnswerResponseDto, toAnswerResponseDto } from './answer-response.dto';
+import { PhotoResponseDto, toPhotoResponseDto } from './photo-response.dto';
 
 type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 type MembershipWithUserAndEntry = GroupMember & {
   user: UserSummary;
-  entry: (DiaryEntry & { answers: Answer[] }) | null;
+  entry: (DiaryEntry & { answers: Answer[]; photos: Photo[] }) | null;
 };
 
 export class FeedMemberUserDto {
@@ -28,6 +29,9 @@ export class FeedEntryDto {
 
   @ApiProperty({ type: () => AnswerResponseDto, isArray: true })
   answers!: AnswerResponseDto[];
+
+  @ApiProperty({ type: () => PhotoResponseDto, isArray: true })
+  photos!: PhotoResponseDto[];
 
   @ApiProperty()
   createdAt!: string;
@@ -73,6 +77,7 @@ export function toGroupDailyFeedResponseDto(
             id: m.entry.id,
             diaryDate: m.entry.diaryDate.toISOString().split('T')[0],
             answers: m.entry.answers.map(toAnswerResponseDto),
+            photos: m.entry.photos.map(toPhotoResponseDto),
             createdAt: m.entry.createdAt.toISOString(),
             updatedAt: m.entry.updatedAt.toISOString(),
           }
