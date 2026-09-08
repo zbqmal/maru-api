@@ -352,8 +352,9 @@ export class DiaryEntryService {
     this.mediaService.validateImageUpload({
       mimeType: input.mimeType,
       sizeBytes: input.sizeBytes,
+      width: input.width,
+      height: input.height,
     });
-    this.validatePhotoDimensions(input.width, input.height);
     this.mediaService.validateDiaryPhotoStorageKey(
       input.diaryEntryId,
       input.storageKey,
@@ -526,16 +527,6 @@ export class DiaryEntryService {
         body,
       },
     });
-  }
-
-  private validatePhotoDimensions(width: number, height: number): void {
-    if (!Number.isInteger(width) || width < 1) {
-      throw new BadRequestException('Photo width must be a positive integer.');
-    }
-
-    if (!Number.isInteger(height) || height < 1) {
-      throw new BadRequestException('Photo height must be a positive integer.');
-    }
   }
 
   private async assertGroupExists(
