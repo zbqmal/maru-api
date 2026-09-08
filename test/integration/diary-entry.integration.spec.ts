@@ -557,6 +557,34 @@ describe('DiaryEntryService (integration)', () => {
       );
     });
 
+    it('returns diary photos with the entry', async () => {
+      const { leader, group, diaryDate } = await createFixture();
+      const entry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate,
+      });
+      const photo = await diaryEntryService.registerPhotoForUser({
+        groupId: group.id,
+        diaryEntryId: entry.id,
+        userId: leader.id,
+        storageKey: `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`,
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+      });
+
+      const context = await diaryEntryService.getTodaysDiaryContext(
+        group.id,
+        leader.id,
+        diaryDate,
+      );
+
+      expect(context.entry?.photos).toHaveLength(1);
+      expect(context.entry?.photos[0].id).toBe(photo.id);
+    });
+
     it('returns only active questions', async () => {
       const { leader, group, diaryDate } = await createFixture();
 
@@ -679,6 +707,34 @@ describe('DiaryEntryService (integration)', () => {
 
       expect(feed).toHaveLength(2);
       expect(feed.every((r) => r.entry !== null)).toBe(true);
+    });
+
+    it('returns photos on each member entry', async () => {
+      const { leader, group, diaryDate } = await createFixture();
+      const entry = await diaryEntryService.findOrCreateEntry({
+        groupId: group.id,
+        userId: leader.id,
+        diaryDate,
+      });
+      const photo = await diaryEntryService.registerPhotoForUser({
+        groupId: group.id,
+        diaryEntryId: entry.id,
+        userId: leader.id,
+        storageKey: `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`,
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+      });
+
+      const feed = await diaryEntryService.getGroupDailyFeed(
+        group.id,
+        diaryDate,
+      );
+
+      const leaderRow = feed.find((row) => row.userId === leader.id);
+      expect(leaderRow?.entry?.photos).toHaveLength(1);
+      expect(leaderRow?.entry?.photos[0].id).toBe(photo.id);
     });
 
     it('does not include entries from a different date', async () => {

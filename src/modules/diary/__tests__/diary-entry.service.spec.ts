@@ -1020,6 +1020,8 @@ describe('DiaryEntryService', () => {
       expect(mediaService.validateImageUpload).toHaveBeenCalledWith({
         mimeType: 'image/jpeg',
         sizeBytes: 1024,
+        width: 1200,
+        height: 900,
       });
       expect(mediaService.validateDiaryPhotoStorageKey).toHaveBeenCalledWith(
         'entry-1',
@@ -1068,6 +1070,52 @@ describe('DiaryEntryService', () => {
         }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
+
+    it('rejects registration when the diary entry does not exist', async () => {
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue(null);
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      await expect(
+        makeService().registerPhotoForUser({
+          groupId: 'group-1',
+          diaryEntryId: 'missing-entry',
+          userId: 'user-1',
+          storageKey: 'diary-entries/missing-entry/photos/photo.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(tx.photo.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects registration for another user or group', async () => {
+      const tx = makeTx();
+      tx.diaryEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        groupId: 'group-1',
+        userId: 'other-user',
+      });
+      prismaService.$transaction.mockImplementation(
+        (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+          cb(tx as unknown as Prisma.TransactionClient),
+      );
+
+      await expect(
+        makeService().registerPhotoForUser({
+          groupId: 'group-1',
+          diaryEntryId: 'entry-1',
+          userId: 'user-1',
+          storageKey: 'diary-entries/entry-1/photos/photo.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(tx.photo.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('deletePhotoForUser', () => {
@@ -1112,6 +1160,39 @@ describe('DiaryEntryService', () => {
           'photo-1',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mediaService.deleteObject).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting a missing photo', async () => {
+      prismaService.photo.findUnique.mockResolvedValue(null);
+
+      await expect(
+        makeService().deletePhotoForUser(
+          'group-1',
+          'entry-1',
+          'user-1',
+          'missing-photo',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mediaService.deleteObject).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting a photo through the wrong diary entry', async () => {
+      prismaService.photo.findUnique.mockResolvedValue({
+        id: 'photo-1',
+        diaryEntryId: 'entry-2',
+        storageKey: 'diary-entries/entry-2/photos/photo.jpg',
+        diaryEntry: { id: 'entry-2', groupId: 'group-1', userId: 'user-1' },
+      });
+
+      await expect(
+        makeService().deletePhotoForUser(
+          'group-1',
+          'entry-1',
+          'user-1',
+          'photo-1',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(mediaService.deleteObject).not.toHaveBeenCalled();
     });
   });

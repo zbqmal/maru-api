@@ -3,6 +3,10 @@ import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { MediaService } from '../media.service';
 import { maxImageSizeBytes } from '../../../lib/constants/media.constants';
+import {
+  generateDiaryPhotoStorageKey,
+  generateProfileImageStorageKey,
+} from '../media.utils';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(),
@@ -50,14 +54,26 @@ describe('MediaService', () => {
         ).toThrow(BadRequestException);
       },
     );
+
+    it.each([
+      ['width', 0],
+      ['width', 1.5],
+      ['height', 0],
+      ['height', 1.5],
+    ])('rejects invalid %s %p', (dimension, value) => {
+      expect(() =>
+        mediaService.validateImageUpload({
+          mimeType: 'image/jpeg',
+          sizeBytes: 1024,
+          [dimension]: value,
+        }),
+      ).toThrow(BadRequestException);
+    });
   });
 
   describe('storage key generation', () => {
     it('creates a diary key that is isolated by entry and uses the MIME extension', () => {
-      const key = mediaService.generateDiaryPhotoStorageKey(
-        'entry_123',
-        'image/jpeg',
-      );
+      const key = generateDiaryPhotoStorageKey('entry_123', 'image/jpeg');
 
       expect(key).toMatch(
         /^diary-entries\/entry_123\/photos\/[0-9a-f-]{36}\.jpg$/,
@@ -65,20 +81,17 @@ describe('MediaService', () => {
     });
 
     it('creates a profile key that is isolated by user and uses the MIME extension', () => {
-      const key = mediaService.generateProfileImageStorageKey(
-        'user-123',
-        'image/webp',
-      );
+      const key = generateProfileImageStorageKey('user-123', 'image/webp');
 
       expect(key).toMatch(/^profiles\/user-123\/[0-9a-f-]{36}\.webp$/);
     });
 
     it('rejects unsupported MIME types and unsafe resource IDs', () => {
+      expect(() => generateDiaryPhotoStorageKey('entry', 'image/gif')).toThrow(
+        BadRequestException,
+      );
       expect(() =>
-        mediaService.generateDiaryPhotoStorageKey('entry', 'image/gif'),
-      ).toThrow(BadRequestException);
-      expect(() =>
-        mediaService.generateProfileImageStorageKey('../user', 'image/png'),
+        generateProfileImageStorageKey('../user', 'image/png'),
       ).toThrow(BadRequestException);
     });
 

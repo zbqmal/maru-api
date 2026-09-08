@@ -293,7 +293,11 @@ describe('Diary photo upload (e2e)', () => {
 
   it('deletes owned diary photos and their S3 objects', async () => {
     const user = await registerAndLogin('photo-delete-owner@example.com');
+    const otherUser = await registerAndLogin('photo-delete-other@example.com');
     const groupId = await createGroup(user.sessionCookie);
+    await prismaService.groupMember.create({
+      data: { groupId, userId: otherUser.userId, role: 'MEMBER' },
+    });
     const entry = await prismaService.diaryEntry.create({
       data: {
         groupId,
@@ -314,10 +318,22 @@ describe('Diary photo upload (e2e)', () => {
       },
     });
 
+    const path = `/groups/${groupId}/diary/entries/${entry.id}/photos/${photo.id}`;
+    const unauthorized = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .delete(path)
+      .set('Cookie', otherUser.sessionCookie);
+
+    expect(unauthorized.status).toBe(403);
+    await expect(
+      prismaService.photo.findUnique({ where: { id: photo.id } }),
+    ).resolves.not.toBeNull();
+
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
-      .delete(`/groups/${groupId}/diary/entries/${entry.id}/photos/${photo.id}`)
+      .delete(path)
       .set('Cookie', user.sessionCookie);
 
     expect(response.status).toBe(204);
