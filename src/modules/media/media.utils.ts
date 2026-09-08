@@ -43,3 +43,10 @@ export const generateProfileImageStorageKey = (
 ): string => {
   return `profiles/${validateIdentifier(userId, 'User')}/${randomUUID()}.${extensionFor(mimeType)}`;
 };
+
+export const generateGroupImageStorageKey = (
+  groupId: string,
+  mimeType: string,
+): string => {
+  return `groups/${validateIdentifier(groupId, 'Group')}/${randomUUID()}.${extensionFor(mimeType)}`;
+};

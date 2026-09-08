@@ -8,6 +8,11 @@ import { GroupMemberRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { GroupMembershipService } from './group-membership.service';
 import {
+  ImageUploadMetadata,
+  MediaService,
+  PresignedUpload,
+} from '../media/media.service';
+import {
   GroupMembershipWithUser,
   GroupWithMemberships,
 } from '../../lib/types/group.types';
@@ -36,6 +41,7 @@ interface CreateGroupWithLeaderInput {
 
 interface UpdateGroupInput {
   name?: string;
+  imageKey?: string | null;
 }
 
 @Injectable()
@@ -43,6 +49,7 @@ export class GroupService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly groupMembershipService: GroupMembershipService,
+    private readonly mediaService?: MediaService,
   ) {}
 
   async createGroupWithLeader(
@@ -124,9 +131,47 @@ export class GroupService {
   ): Promise<GroupWithMemberships> {
     return this.prismaService.group.update({
       where: { id },
-      data: { name: input.name },
+      data: { name: input.name, imageKey: input.imageKey },
       include: groupWithMembershipsInclude,
     });
+  }
+
+  createImageUpload(
+    groupId: string,
+    metadata: ImageUploadMetadata,
+  ): Promise<PresignedUpload> {
+    return this.mediaService!.createGroupImageUpload(groupId, metadata);
+  }
+
+  async updateImage(
+    group: GroupWithMemberships,
+    storageKey: string,
+    mimeType: string,
+  ): Promise<GroupWithMemberships> {
+    this.mediaService!.validateGroupImageStorageKey(
+      group.id,
+      storageKey,
+      mimeType,
+    );
+    const updated = await this.updateGroup(group.id, { imageKey: storageKey });
+
+    if (group.imageKey && group.imageKey !== storageKey) {
+      await this.mediaService!.deleteObject(group.imageKey);
+    }
+
+    return updated;
+  }
+
+  async removeImage(
+    group: GroupWithMemberships,
+  ): Promise<GroupWithMemberships> {
+    const updated = await this.updateGroup(group.id, { imageKey: null });
+
+    if (group.imageKey) {
+      await this.mediaService!.deleteObject(group.imageKey);
+    }
+
+    return updated;
   }
 
   async transferLeadership(

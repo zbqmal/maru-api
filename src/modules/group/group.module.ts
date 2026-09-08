@@ -4,6 +4,7 @@ import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { DatabaseModule } from '../database/database.module';
 import { EmailModule } from '../email/email.module';
 import { UserModule } from '../user/user.module';
+import { MediaModule } from '../media/media.module';
 import { GroupController } from './group.controller';
 import { GroupDeletionService } from './group-deletion.service';
 import { GroupInvitationController } from './group-invitation.controller';
@@ -15,7 +16,7 @@ import { GroupMembershipService } from './group-membership.service';
 import { GroupService } from './group.service';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UserModule, EmailModule],
+  imports: [DatabaseModule, AuthModule, UserModule, EmailModule, MediaModule],
   controllers: [GroupController, GroupInvitationController],
   providers: [
     GroupService,
