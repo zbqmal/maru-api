@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  InternalServerErrorException,
   HttpStatus,
   Param,
   Patch,
@@ -111,7 +112,7 @@ export class DiaryController {
       const url = photoUrlsByStorageKey.get(storageKey);
 
       if (!url) {
-        throw new Error(
+        throw new InternalServerErrorException(
           `Missing presigned URL for photo storage key: ${storageKey}`,
         );
       }
@@ -163,7 +164,7 @@ export class DiaryController {
       const url = photoUrlsByStorageKey.get(storageKey);
 
       if (!url) {
-        throw new Error(
+        throw new InternalServerErrorException(
           `Missing presigned URL for photo storage key: ${storageKey}`,
         );
       }
