@@ -7,10 +7,12 @@ import { AllExceptionsFilter } from '../../src/common/filters/all-exceptions.fil
 import { LoggingInterceptor } from '../../src/common/interceptors/logging.interceptor';
 import { PrismaService } from '../../src/modules/database/prisma.service';
 import { EmailService } from '../../src/modules/email/email.service';
+import { MediaService } from '../../src/modules/media/media.service';
 
 describe('DiaryController (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
+  const createDiaryPhotoViewUrl = jest.fn();
 
   const TEST_DATE = '2026-08-26';
 
@@ -20,6 +22,8 @@ describe('DiaryController (e2e)', () => {
     })
       .overrideProvider(EmailService)
       .useValue({ send: jest.fn().mockResolvedValue(undefined) })
+      .overrideProvider(MediaService)
+      .useValue({ createDiaryPhotoViewUrl })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -38,7 +42,12 @@ describe('DiaryController (e2e)', () => {
   });
 
   beforeEach(async () => {
+    jest.resetAllMocks();
+    createDiaryPhotoViewUrl.mockImplementation((storageKey: string) => {
+      return `https://example.com/view/${encodeURIComponent(storageKey)}?X-Amz-Expires=900`;
+    });
     await prismaService.answer.deleteMany();
+    await prismaService.photo.deleteMany();
     await prismaService.diaryEntry.deleteMany();
     await prismaService.groupQuestion.deleteMany();
     await prismaService.group.deleteMany();
@@ -218,6 +227,49 @@ describe('DiaryController (e2e)', () => {
     expect(body.entry.answers[0].body).toBe('Doing great!');
     expect(body.entry.answers[0].groupQuestionId).toBe(questionId);
     expect(body.entry.answers[0].questionSnapshot).toBe('How are you?');
+  });
+
+  it('includes presigned photo URLs in diary context entry photos', async () => {
+    const leader = await registerAndLogin(
+      'diary-context-photo-url@example.com',
+    );
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    const diaryDate = new Date(`${TEST_DATE}T00:00:00.000Z`);
+    const entry = await prismaService.diaryEntry.create({
+      data: { groupId, userId: leader.userId, diaryDate },
+    });
+    const photo = await prismaService.photo.create({
+      data: {
+        diaryEntryId: entry.id,
+        uploadedByUserId: leader.userId,
+        storageKey: `diary-entries/${entry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`,
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+        displayOrder: 0,
+      },
+    });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/context`)
+      .query({ date: TEST_DATE })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(200);
+    const body = response.body as {
+      entry: { photos: Array<{ storageKey: string; url: string }> } | null;
+    };
+    expect(body.entry?.photos).toHaveLength(1);
+    expect(body.entry?.photos[0]).toEqual(
+      expect.objectContaining({
+        storageKey: photo.storageKey,
+        url: `https://example.com/view/${encodeURIComponent(photo.storageKey)}?X-Amz-Expires=900`,
+      }),
+    );
+    expect(createDiaryPhotoViewUrl).toHaveBeenCalledWith(photo.storageKey);
   });
 
   it('returns entry only for the specific date provided, not another date', async () => {
@@ -510,6 +562,21 @@ describe('DiaryController (e2e)', () => {
         groupQuestionId: questionId,
         body: 'Leader had a great day.',
       });
+    const leaderEntry = await prismaService.diaryEntry.findFirstOrThrow({
+      where: { groupId, userId: leader.userId, diaryDate: new Date(TEST_DATE) },
+    });
+    const leaderPhoto = await prismaService.photo.create({
+      data: {
+        diaryEntryId: leaderEntry.id,
+        uploadedByUserId: leader.userId,
+        storageKey: `diary-entries/${leaderEntry.id}/photos/550e8400-e29b-41d4-a716-446655440000.jpg`,
+        mimeType: 'image/jpeg',
+        width: 1200,
+        height: 900,
+        sizeBytes: 1024,
+        displayOrder: 0,
+      },
+    });
 
     const response = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
@@ -525,7 +592,10 @@ describe('DiaryController (e2e)', () => {
       members: {
         userId: string;
         user: { id: string; name: string };
-        entry: { answers: { body: string }[] } | null;
+        entry: {
+          answers: { body: string }[];
+          photos: { storageKey: string; url: string }[];
+        } | null;
       }[];
     };
 
@@ -538,6 +608,12 @@ describe('DiaryController (e2e)', () => {
     expect(leaderRow?.entry).not.toBeNull();
     expect(leaderRow?.entry?.answers).toHaveLength(1);
     expect(leaderRow?.entry?.answers[0].body).toBe('Leader had a great day.');
+    expect(leaderRow?.entry?.photos).toEqual([
+      expect.objectContaining({
+        storageKey: leaderPhoto.storageKey,
+        url: `https://example.com/view/${encodeURIComponent(leaderPhoto.storageKey)}?X-Amz-Expires=900`,
+      }),
+    ]);
     expect(memberRow?.entry).toBeNull();
   });
 
