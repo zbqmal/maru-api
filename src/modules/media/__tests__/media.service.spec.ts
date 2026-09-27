@@ -1,8 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { MediaService } from '../media.service';
-import { maxImageSizeBytes } from '../../../lib/constants/media.constants';
+import {
+  diaryPhotoViewUrlExpiresInSeconds,
+  maxImageSizeBytes,
+} from '../../../lib/constants/media.constants';
 import {
   generateDiaryPhotoStorageKey,
   generateProfileImageStorageKey,
@@ -103,6 +106,24 @@ describe('MediaService', () => {
         const result = await mediaService.createDiaryPhotoUpload('entry_123', {
           mimeType: 'image/png',
           sizeBytes: 1024,
+        });
+
+        describe('createDiaryPhotoViewUrl', () => {
+          it('returns a signed GET URL for an existing diary photo key', async () => {
+            const signedUrl = 'https://maru-test-media.s3.amazonaws.com/photo';
+            jest.mocked(getSignedUrl).mockResolvedValue(signedUrl);
+
+            const result = await mediaService.createDiaryPhotoViewUrl(
+              'diary-entries/entry_123/photos/550e8400-e29b-41d4-a716-446655440000.png',
+            );
+
+            expect(result).toBe(signedUrl);
+            expect(getSignedUrl).toHaveBeenCalledWith(
+              s3Service.client,
+              expect.any(GetObjectCommand),
+              { expiresIn: diaryPhotoViewUrlExpiresInSeconds },
+            );
+          });
         });
 
         expect(result.uploadUrl).toBe(signedUrl);

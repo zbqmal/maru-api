@@ -1,8 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3Service } from './s3.service';
-import { maxImageSizeBytes } from '../../lib/constants/media.constants';
+import {
+  diaryPhotoViewUrlExpiresInSeconds,
+  maxImageSizeBytes,
+} from '../../lib/constants/media.constants';
 import {
   extensionFor,
   generateDiaryPhotoStorageKey,
@@ -85,6 +92,17 @@ export class MediaService {
         Bucket: this.s3Service.bucket,
         Key: storageKey,
       }),
+    );
+  }
+
+  async createDiaryPhotoViewUrl(storageKey: string): Promise<string> {
+    return getSignedUrl(
+      this.s3Service.client,
+      new GetObjectCommand({
+        Bucket: this.s3Service.bucket,
+        Key: storageKey,
+      }),
+      { expiresIn: diaryPhotoViewUrlExpiresInSeconds },
     );
   }
 

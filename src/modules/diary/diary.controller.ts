@@ -89,10 +89,11 @@ export class DiaryController {
       diaryDate,
     );
 
-    return toDiaryContextResponseDto(
+    return await toDiaryContextResponseDto(
       context.questions,
       context.dailyQuestion,
       context.entry,
+      (storageKey) => this.mediaService.createDiaryPhotoViewUrl(storageKey),
     );
   }
 
@@ -122,7 +123,11 @@ export class DiaryController {
       diaryDate,
     );
 
-    return toGroupDailyFeedResponseDto(diaryDate, memberships);
+    return await toGroupDailyFeedResponseDto(
+      diaryDate,
+      memberships,
+      (storageKey) => this.mediaService.createDiaryPhotoViewUrl(storageKey),
+    );
   }
 
   @ApiOperation({
@@ -262,7 +267,9 @@ export class DiaryController {
       sizeBytes: dto.sizeBytes,
     });
 
-    return toPhotoResponseDto(photo);
+    const url = await this.mediaService.createDiaryPhotoViewUrl(photo.storageKey);
+
+    return toPhotoResponseDto(photo, url);
   }
 
   @ApiOperation({ summary: 'Delete a diary photo' })

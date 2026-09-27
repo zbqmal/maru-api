@@ -14,6 +14,11 @@ export class PhotoResponseDto {
   @ApiProperty()
   storageKey!: string;
 
+  @ApiProperty({
+    description: 'Presigned photo view URL (expires in 15 minutes).',
+  })
+  url!: string;
+
   @ApiProperty()
   mimeType!: string;
 
@@ -33,12 +38,13 @@ export class PhotoResponseDto {
   createdAt!: string;
 }
 
-export function toPhotoResponseDto(photo: Photo): PhotoResponseDto {
+export function toPhotoResponseDto(photo: Photo, url: string): PhotoResponseDto {
   return {
     id: photo.id,
     diaryEntryId: photo.diaryEntryId,
     uploadedByUserId: photo.uploadedByUserId,
     storageKey: photo.storageKey,
+    url,
     mimeType: photo.mimeType,
     width: photo.width,
     height: photo.height,
