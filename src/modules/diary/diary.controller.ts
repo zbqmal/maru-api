@@ -60,6 +60,21 @@ export class DiaryController {
     private readonly mediaService: MediaService,
   ) {}
 
+  private async resolvePhotoUrlsByStorageKey(
+    storageKeys: readonly string[],
+  ): Promise<Map<string, string>> {
+    const uniqueStorageKeys = [...new Set(storageKeys)];
+    const urls = await Promise.all(
+      uniqueStorageKeys.map((storageKey) =>
+        this.mediaService.createDiaryPhotoViewUrl(storageKey),
+      ),
+    );
+
+    return new Map(
+      uniqueStorageKeys.map((storageKey, index) => [storageKey, urls[index]]),
+    );
+  }
+
   @ApiOperation({
     summary: 'Get diary context for a given date',
     description:
@@ -89,11 +104,26 @@ export class DiaryController {
       diaryDate,
     );
 
-    return await toDiaryContextResponseDto(
+    const photoUrlsByStorageKey = await this.resolvePhotoUrlsByStorageKey(
+      context.entry?.photos.map((photo) => photo.storageKey) ?? [],
+    );
+    const resolvePhotoUrl = (storageKey: string): string => {
+      const url = photoUrlsByStorageKey.get(storageKey);
+
+      if (!url) {
+        throw new Error(
+          `Missing presigned URL for photo storage key: ${storageKey}`,
+        );
+      }
+
+      return url;
+    };
+
+    return toDiaryContextResponseDto(
       context.questions,
       context.dailyQuestion,
       context.entry,
-      (storageKey) => this.mediaService.createDiaryPhotoViewUrl(storageKey),
+      resolvePhotoUrl,
     );
   }
 
@@ -123,11 +153,25 @@ export class DiaryController {
       diaryDate,
     );
 
-    return await toGroupDailyFeedResponseDto(
-      diaryDate,
-      memberships,
-      (storageKey) => this.mediaService.createDiaryPhotoViewUrl(storageKey),
+    const photoUrlsByStorageKey = await this.resolvePhotoUrlsByStorageKey(
+      memberships.flatMap(
+        (membership) =>
+          membership.entry?.photos.map((photo) => photo.storageKey) ?? [],
+      ),
     );
+    const resolvePhotoUrl = (storageKey: string): string => {
+      const url = photoUrlsByStorageKey.get(storageKey);
+
+      if (!url) {
+        throw new Error(
+          `Missing presigned URL for photo storage key: ${storageKey}`,
+        );
+      }
+
+      return url;
+    };
+
+    return toGroupDailyFeedResponseDto(diaryDate, memberships, resolvePhotoUrl);
   }
 
   @ApiOperation({

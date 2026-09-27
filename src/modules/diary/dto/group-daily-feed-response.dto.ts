@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Answer, DiaryEntry, GroupMember, Photo, User } from '@prisma/client';
 import { AnswerResponseDto, toAnswerResponseDto } from './answer-response.dto';
 import { PhotoResponseDto, toPhotoResponseDto } from './photo-response.dto';
-type PhotoUrlResolver = (storageKey: string) => Promise<string>;
+type PhotoUrlResolver = (storageKey: string) => string;
 
 type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 type MembershipWithUserAndEntry = GroupMember & {
@@ -60,39 +60,32 @@ export class GroupDailyFeedResponseDto {
   members!: FeedMemberEntryDto[];
 }
 
-export async function toGroupDailyFeedResponseDto(
+export function toGroupDailyFeedResponseDto(
   date: Date,
   memberships: MembershipWithUserAndEntry[],
   resolvePhotoUrl: PhotoUrlResolver,
-): Promise<GroupDailyFeedResponseDto> {
+): GroupDailyFeedResponseDto {
   return {
     date: date.toISOString().split('T')[0],
-    members: await Promise.all(
-      memberships.map(async (m) => ({
-        userId: m.userId,
-        user: {
-          id: m.user.id,
-          name: m.user.name,
-          profileImageKey: m.user.profileImageKey,
-        },
-        entry: m.entry
-          ? {
-              id: m.entry.id,
-              diaryDate: m.entry.diaryDate.toISOString().split('T')[0],
-              answers: m.entry.answers.map(toAnswerResponseDto),
-              photos: await Promise.all(
-                m.entry.photos.map(async (photo) =>
-                  toPhotoResponseDto(
-                    photo,
-                    await resolvePhotoUrl(photo.storageKey),
-                  ),
-                ),
-              ),
-              createdAt: m.entry.createdAt.toISOString(),
-              updatedAt: m.entry.updatedAt.toISOString(),
-            }
-          : null,
-      })),
-    ),
+    members: memberships.map((m) => ({
+      userId: m.userId,
+      user: {
+        id: m.user.id,
+        name: m.user.name,
+        profileImageKey: m.user.profileImageKey,
+      },
+      entry: m.entry
+        ? {
+            id: m.entry.id,
+            diaryDate: m.entry.diaryDate.toISOString().split('T')[0],
+            answers: m.entry.answers.map(toAnswerResponseDto),
+            photos: m.entry.photos.map((photo) =>
+              toPhotoResponseDto(photo, resolvePhotoUrl(photo.storageKey)),
+            ),
+            createdAt: m.entry.createdAt.toISOString(),
+            updatedAt: m.entry.updatedAt.toISOString(),
+          }
+        : null,
+    })),
   };
 }

@@ -16,7 +16,7 @@ import {
   toDailyQuestionResponseDto,
 } from '../../daily-question/dto/daily-question-response.dto';
 import { PhotoResponseDto, toPhotoResponseDto } from './photo-response.dto';
-type PhotoUrlResolver = (storageKey: string) => Promise<string>;
+type PhotoUrlResolver = (storageKey: string) => string;
 
 export class DiaryEntryContextDto {
   @ApiProperty()
@@ -49,12 +49,12 @@ export class DiaryContextResponseDto {
   entry!: DiaryEntryContextDto | null;
 }
 
-export async function toDiaryContextResponseDto(
+export function toDiaryContextResponseDto(
   questions: GroupQuestion[],
   dailyQuestion: DailyQuestion | null,
   entry: (DiaryEntry & { answers: Answer[]; photos: Photo[] }) | null,
   resolvePhotoUrl: PhotoUrlResolver,
-): Promise<DiaryContextResponseDto> {
+): DiaryContextResponseDto {
   return {
     questions: questions.map(toGroupQuestionResponseDto),
     dailyQuestion: dailyQuestion
@@ -65,13 +65,8 @@ export async function toDiaryContextResponseDto(
           id: entry.id,
           diaryDate: entry.diaryDate.toISOString().split('T')[0],
           answers: entry.answers.map(toAnswerResponseDto),
-          photos: await Promise.all(
-            entry.photos.map(async (photo) =>
-              toPhotoResponseDto(
-                photo,
-                await resolvePhotoUrl(photo.storageKey),
-              ),
-            ),
+          photos: entry.photos.map((photo) =>
+            toPhotoResponseDto(photo, resolvePhotoUrl(photo.storageKey)),
           ),
           createdAt: entry.createdAt.toISOString(),
           updatedAt: entry.updatedAt.toISOString(),
