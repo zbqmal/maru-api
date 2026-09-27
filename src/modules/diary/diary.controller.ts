@@ -61,19 +61,30 @@ export class DiaryController {
     private readonly mediaService: MediaService,
   ) {}
 
-  private async resolvePhotoUrlsByStorageKey(
+  private async createPhotoUrlResolver(
     storageKeys: readonly string[],
-  ): Promise<Map<string, string>> {
+  ): Promise<(storageKey: string) => string> {
     const uniqueStorageKeys = [...new Set(storageKeys)];
     const urls = await Promise.all(
       uniqueStorageKeys.map((storageKey) =>
         this.mediaService.createDiaryPhotoViewUrl(storageKey),
       ),
     );
-
-    return new Map(
+    const photoUrlsByStorageKey = new Map(
       uniqueStorageKeys.map((storageKey, index) => [storageKey, urls[index]]),
     );
+
+    return (storageKey: string): string => {
+      const url = photoUrlsByStorageKey.get(storageKey);
+
+      if (!url) {
+        throw new InternalServerErrorException(
+          `Missing presigned URL for photo storage key: ${storageKey}`,
+        );
+      }
+
+      return url;
+    };
   }
 
   @ApiOperation({
@@ -105,20 +116,9 @@ export class DiaryController {
       diaryDate,
     );
 
-    const photoUrlsByStorageKey = await this.resolvePhotoUrlsByStorageKey(
+    const resolvePhotoUrl = await this.createPhotoUrlResolver(
       context.entry?.photos.map((photo) => photo.storageKey) ?? [],
     );
-    const resolvePhotoUrl = (storageKey: string): string => {
-      const url = photoUrlsByStorageKey.get(storageKey);
-
-      if (!url) {
-        throw new InternalServerErrorException(
-          `Missing presigned URL for photo storage key: ${storageKey}`,
-        );
-      }
-
-      return url;
-    };
 
     return toDiaryContextResponseDto(
       context.questions,
@@ -154,23 +154,12 @@ export class DiaryController {
       diaryDate,
     );
 
-    const photoUrlsByStorageKey = await this.resolvePhotoUrlsByStorageKey(
+    const resolvePhotoUrl = await this.createPhotoUrlResolver(
       memberships.flatMap(
         (membership) =>
           membership.entry?.photos.map((photo) => photo.storageKey) ?? [],
       ),
     );
-    const resolvePhotoUrl = (storageKey: string): string => {
-      const url = photoUrlsByStorageKey.get(storageKey);
-
-      if (!url) {
-        throw new InternalServerErrorException(
-          `Missing presigned URL for photo storage key: ${storageKey}`,
-        );
-      }
-
-      return url;
-    };
 
     return toGroupDailyFeedResponseDto(diaryDate, memberships, resolvePhotoUrl);
   }
