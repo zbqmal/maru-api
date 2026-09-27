@@ -2137,6 +2137,10 @@
           "storageKey": {
             "type": "string"
           },
+          "url": {
+            "type": "string",
+            "description": "Presigned photo view URL (expires in 15 minutes)."
+          },
           "mimeType": {
             "type": "string"
           },
@@ -2161,6 +2165,7 @@
           "diaryEntryId",
           "uploadedByUserId",
           "storageKey",
+          "url",
           "mimeType",
           "width",
           "height",

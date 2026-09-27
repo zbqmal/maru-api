@@ -43,7 +43,7 @@ describe('DiaryController (e2e)', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
-    createDiaryPhotoViewUrl.mockImplementation(async (storageKey: string) => {
+    createDiaryPhotoViewUrl.mockImplementation((storageKey: string) => {
       return `https://example.com/view/${encodeURIComponent(storageKey)}?X-Amz-Expires=900`;
     });
     await prismaService.answer.deleteMany();
@@ -230,7 +230,9 @@ describe('DiaryController (e2e)', () => {
   });
 
   it('includes presigned photo URLs in diary context entry photos', async () => {
-    const leader = await registerAndLogin('diary-context-photo-url@example.com');
+    const leader = await registerAndLogin(
+      'diary-context-photo-url@example.com',
+    );
     const groupId = await createGroupAsLeader(leader.sessionCookie);
     const diaryDate = new Date(`${TEST_DATE}T00:00:00.000Z`);
     const entry = await prismaService.diaryEntry.create({
@@ -590,9 +592,10 @@ describe('DiaryController (e2e)', () => {
       members: {
         userId: string;
         user: { id: string; name: string };
-        entry:
-          | { answers: { body: string }[]; photos: { storageKey: string; url: string }[] }
-          | null;
+        entry: {
+          answers: { body: string }[];
+          photos: { storageKey: string; url: string }[];
+        } | null;
       }[];
     };
 

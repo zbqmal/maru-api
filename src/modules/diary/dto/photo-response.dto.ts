@@ -38,7 +38,10 @@ export class PhotoResponseDto {
   createdAt!: string;
 }
 
-export function toPhotoResponseDto(photo: Photo, url: string): PhotoResponseDto {
+export function toPhotoResponseDto(
+  photo: Photo,
+  url: string,
+): PhotoResponseDto {
   return {
     id: photo.id,
     diaryEntryId: photo.diaryEntryId,

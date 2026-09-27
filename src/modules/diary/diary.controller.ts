@@ -267,7 +267,9 @@ export class DiaryController {
       sizeBytes: dto.sizeBytes,
     });
 
-    const url = await this.mediaService.createDiaryPhotoViewUrl(photo.storageKey);
+    const url = await this.mediaService.createDiaryPhotoViewUrl(
+      photo.storageKey,
+    );
 
     return toPhotoResponseDto(photo, url);
   }
