@@ -15,7 +15,7 @@ import { MediaService } from '../../src/modules/media/media.service';
 describe('Diary photo upload (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
-  const createDiaryPhotoUpload = jest.fn();
+  const createImageUpload = jest.fn();
   const createDiaryPhotoViewUrl = jest.fn();
   const validateImageUpload = jest.fn();
   const validateDiaryPhotoStorageKey = jest.fn();
@@ -29,7 +29,7 @@ describe('Diary photo upload (e2e)', () => {
       .useValue({ send: jest.fn().mockResolvedValue(undefined) })
       .overrideProvider(MediaService)
       .useValue({
-        createDiaryPhotoUpload,
+        createImageUpload,
         createDiaryPhotoViewUrl,
         validateImageUpload,
         validateDiaryPhotoStorageKey,
@@ -53,7 +53,7 @@ describe('Diary photo upload (e2e)', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
-    createDiaryPhotoUpload.mockResolvedValue({
+    createImageUpload.mockResolvedValue({
       uploadUrl: 'https://example.com/presigned-upload',
       storageKey: 'diary-entries/entry/photos/photo.jpg',
     });
@@ -137,10 +137,12 @@ describe('Diary photo upload (e2e)', () => {
       uploadUrl: 'https://example.com/presigned-upload',
       storageKey: 'diary-entries/entry/photos/photo.jpg',
     });
-    expect(createDiaryPhotoUpload).toHaveBeenCalledWith(entry.id, {
-      mimeType: 'image/jpeg',
-      sizeBytes: 1024,
-    });
+    expect(createImageUpload).toHaveBeenCalledWith(
+      expect.stringMatching(
+        new RegExp(`^diary-entries/${entry.id}/photos/[0-9a-f-]{36}\\.jpg$`),
+      ),
+      { mimeType: 'image/jpeg', sizeBytes: 1024 },
+    );
   });
 
   it('rejects unauthenticated, non-member, non-owner, and invalid upload requests', async () => {
@@ -190,7 +192,7 @@ describe('Diary photo upload (e2e)', () => {
     expect(nonOwner.status).toBe(403);
     expect(groupNonMember.status).toBe(403);
     expect(invalidPayload.status).toBe(400);
-    expect(createDiaryPhotoUpload).not.toHaveBeenCalled();
+    expect(createImageUpload).not.toHaveBeenCalled();
   });
 
   it('registers uploaded photo metadata for the diary owner', async () => {

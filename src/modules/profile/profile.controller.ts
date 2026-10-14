@@ -1,13 +1,17 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiCookieAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -21,6 +25,9 @@ import {
 } from './dto/profile-response.dto';
 import { UpdateBirthdayDto } from './dto/update-birthday.dto';
 import { UpdateNameDto } from './dto/update-name.dto';
+import { RequestProfileImageUploadDto } from './dto/request-profile-image-upload.dto';
+import { UpdateProfileImageDto } from './dto/update-profile-image.dto';
+import { PresignedUploadResponseDto } from '../diary/dto/presigned-upload-response.dto';
 import { ProfileService } from './profile.service';
 
 @ApiTags('Profile')
@@ -65,5 +72,38 @@ export class ProfileController {
       dto.birthday,
     );
     return toProfileResponseDto(updated);
+  }
+
+  @ApiOperation({ summary: 'Request a presigned profile image upload URL' })
+  @ApiCreatedResponse({
+    description: 'Presigned profile image upload URL created successfully.',
+    type: PresignedUploadResponseDto,
+  })
+  @Post('image/upload-url')
+  createImageUpload(
+    @CurrentUser() user: User,
+    @Body() dto: RequestProfileImageUploadDto,
+  ): Promise<PresignedUploadResponseDto> {
+    return this.profileService.createImageUpload(user, dto);
+  }
+
+  @ApiOperation({ summary: 'Set own profile image' })
+  @ApiOkResponse({ description: 'Updated profile', type: ProfileResponseDto })
+  @Patch('image')
+  async updateImage(
+    @CurrentUser() user: User,
+    @Body() dto: UpdateProfileImageDto,
+  ): Promise<ProfileResponseDto> {
+    return toProfileResponseDto(
+      await this.profileService.updateImage(user, dto.storageKey, dto.mimeType),
+    );
+  }
+
+  @ApiOperation({ summary: 'Remove own profile image' })
+  @ApiNoContentResponse({ description: 'Profile image removed successfully.' })
+  @HttpCode(204)
+  @Delete('image')
+  async removeImage(@CurrentUser() user: User): Promise<void> {
+    await this.profileService.removeImage(user);
   }
 }

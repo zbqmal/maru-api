@@ -44,6 +44,9 @@ import { GroupResponseDto, toGroupResponseDto } from './dto/group-response.dto';
 import { TransferLeadershipDto } from './dto/transfer-leadership.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { UpdateGroupQuestionDto } from './dto/update-group-question.dto';
+import { RequestGroupImageUploadDto } from './dto/request-group-image-upload.dto';
+import { UpdateGroupImageDto } from './dto/update-group-image.dto';
+import { PresignedUploadResponseDto } from '../diary/dto/presigned-upload-response.dto';
 import { GroupDeletionService } from './group-deletion.service';
 import { GroupInvitationService } from './group-invitation.service';
 import { GroupQuestionService } from './group-question.service';
@@ -256,6 +259,53 @@ export class GroupController {
       name: dto.name,
     });
     return toGroupResponseDto(group);
+  }
+
+  @ApiOperation({
+    summary: 'Request a presigned group image upload URL (leader only)',
+  })
+  @ApiCreatedResponse({
+    description: 'Presigned group image upload URL created successfully.',
+    type: PresignedUploadResponseDto,
+  })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @UseGuards(GroupLeaderGuard)
+  @Post(':groupId/image/upload-url')
+  createImageUpload(
+    @Param('groupId') groupId: string,
+    @Body() dto: RequestGroupImageUploadDto,
+  ): Promise<PresignedUploadResponseDto> {
+    return this.groupService.createImageUpload(groupId, dto);
+  }
+
+  @ApiOperation({ summary: 'Set a group image (leader only)' })
+  @ApiOkResponse({ description: 'Updated group', type: GroupResponseDto })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @UseGuards(GroupLeaderGuard)
+  @Patch(':groupId/image')
+  async updateImage(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Body() dto: UpdateGroupImageDto,
+  ): Promise<GroupResponseDto> {
+    const group = await this.groupService.findByIdForUser(groupId, user.id);
+    return toGroupResponseDto(
+      await this.groupService.updateImage(group, dto.storageKey, dto.mimeType),
+    );
+  }
+
+  @ApiOperation({ summary: 'Remove a group image (leader only)' })
+  @ApiNoContentResponse({ description: 'Group image removed successfully.' })
+  @ApiForbiddenResponse({ description: 'Group leader role required.' })
+  @UseGuards(GroupLeaderGuard)
+  @HttpCode(204)
+  @Delete(':groupId/image')
+  async removeImage(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+  ): Promise<void> {
+    const group = await this.groupService.findByIdForUser(groupId, user.id);
+    await this.groupService.removeImage(group);
   }
 
   @ApiOperation({ summary: 'Transfer group leadership (leader only)' })

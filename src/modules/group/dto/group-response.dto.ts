@@ -12,6 +12,9 @@ export class GroupResponseDto {
   @ApiProperty()
   name!: string;
 
+  @ApiProperty({ nullable: true })
+  imageKey!: string | null;
+
   @ApiProperty()
   createdAt!: string;
 
@@ -28,6 +31,7 @@ export function toGroupResponseDto(
   return {
     id: group.id,
     name: group.name,
+    imageKey: group.imageKey,
     createdAt: group.createdAt.toISOString(),
     updatedAt: group.updatedAt.toISOString(),
     memberships: group.memberships.map(toGroupMemberResponseDto),

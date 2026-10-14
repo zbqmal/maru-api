@@ -1,6 +1,7 @@
 import { User } from '@prisma/client';
 import { ProfileService } from '../profile.service';
 import { UserService } from '../../user/user.service';
+import { MediaService } from '../../media/media.service';
 
 const mockUser = (): User => ({
   id: 'user-1',
@@ -16,18 +17,101 @@ const mockUser = (): User => ({
 describe('ProfileService', () => {
   let profileService: ProfileService;
   let userService: jest.Mocked<UserService>;
+  let mediaService: jest.Mocked<MediaService>;
 
   beforeEach(() => {
     userService = {
       updateProfile: jest.fn(),
     } as unknown as jest.Mocked<UserService>;
-    profileService = new ProfileService(userService);
+    mediaService = {
+      createProfileImageUpload: jest.fn(),
+      validateProfileImageStorageKey: jest.fn(),
+      deleteObject: jest.fn(),
+    } as unknown as jest.Mocked<MediaService>;
+    profileService = new ProfileService(userService, mediaService);
   });
 
   describe('getProfile', () => {
     it('returns the user unchanged', () => {
       const user = mockUser();
       expect(profileService.getProfile(user)).toBe(user);
+    });
+
+    describe('profile image', () => {
+      const storageKey =
+        'profiles/user-1/550e8400-e29b-41d4-a716-446655440000.jpg';
+
+      it('creates a profile image upload for the current user', async () => {
+        const user = mockUser();
+        mediaService.createProfileImageUpload.mockResolvedValue({
+          uploadUrl: 'https://example.com/upload',
+          storageKey,
+        });
+
+        await expect(
+          profileService.createImageUpload(user, {
+            mimeType: 'image/jpeg',
+            sizeBytes: 1024,
+          }),
+        ).resolves.toEqual({
+          uploadUrl: 'https://example.com/upload',
+          storageKey,
+        });
+        expect(mediaService.createProfileImageUpload.mock.calls).toContainEqual(
+          [
+            user.id,
+            {
+              mimeType: 'image/jpeg',
+              sizeBytes: 1024,
+            },
+          ],
+        );
+      });
+
+      it('replaces an image and cleans up the prior object', async () => {
+        const user = {
+          ...mockUser(),
+          profileImageKey: 'profiles/user-1/old.jpg',
+        };
+        userService.updateProfile.mockResolvedValue({
+          ...user,
+          profileImageKey: storageKey,
+        });
+
+        await profileService.updateImage(user, storageKey, 'image/jpeg');
+
+        expect(
+          mediaService.validateProfileImageStorageKey.mock.calls,
+        ).toContainEqual([user.id, storageKey, 'image/jpeg']);
+        expect(userService.updateProfile.mock.calls).toContainEqual([
+          user.id,
+          { profileImageKey: storageKey },
+        ]);
+        expect(mediaService.deleteObject.mock.calls).toContainEqual([
+          user.profileImageKey,
+        ]);
+      });
+
+      it('clears the image key and cleans up the old object', async () => {
+        const user = {
+          ...mockUser(),
+          profileImageKey: 'profiles/user-1/old.jpg',
+        };
+        userService.updateProfile.mockResolvedValue({
+          ...user,
+          profileImageKey: null,
+        });
+
+        await profileService.removeImage(user);
+
+        expect(userService.updateProfile.mock.calls).toContainEqual([
+          user.id,
+          { profileImageKey: null },
+        ]);
+        expect(mediaService.deleteObject.mock.calls).toContainEqual([
+          user.profileImageKey,
+        ]);
+      });
     });
   });
 

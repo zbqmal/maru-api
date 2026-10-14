@@ -32,10 +32,11 @@ model User {
 }
 
 model Group {
-  id          String            @id @default(cuid())
-  name        String            @db.VarChar(100)
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  id            String            @id @default(cuid())
+  name          String            @db.VarChar(100)
+  imageKey      String?           @map("image_key") @db.VarChar(255)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
   memberships GroupMember[]
   invitations GroupInvitation[]
   groupQuestions GroupQuestion[]

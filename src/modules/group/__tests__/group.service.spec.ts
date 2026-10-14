@@ -305,6 +305,91 @@ describe('GroupService', () => {
     );
   });
 
+  describe('group image', () => {
+    const storageKey =
+      'groups/group-1/550e8400-e29b-41d4-a716-446655440000.png';
+
+    it('creates an upload, replaces the image key, and cleans up the old object', async () => {
+      const groupUpdate = jest.fn().mockResolvedValue({
+        id: 'group-1',
+        name: 'Family',
+        imageKey: storageKey,
+        memberships: [],
+      });
+      const mediaService = {
+        createGroupImageUpload: jest.fn().mockResolvedValue({
+          uploadUrl: 'https://example.com/upload',
+          storageKey,
+        }),
+        validateGroupImageStorageKey: jest.fn(),
+        deleteObject: jest.fn(),
+      };
+      const service = new GroupService(
+        { group: { update: groupUpdate } } as never,
+        {} as never,
+        mediaService as never,
+      );
+      const group = {
+        id: 'group-1',
+        name: 'Family',
+        imageKey: 'groups/group-1/old.png',
+        memberships: [],
+      } as never;
+
+      await expect(
+        service.createImageUpload('group-1', {
+          mimeType: 'image/png',
+          sizeBytes: 1024,
+        }),
+      ).resolves.toEqual({
+        uploadUrl: 'https://example.com/upload',
+        storageKey,
+      });
+      await service.updateImage(group, storageKey, 'image/png');
+
+      expect(mediaService.validateGroupImageStorageKey).toHaveBeenCalledWith(
+        'group-1',
+        storageKey,
+        'image/png',
+      );
+      expect(groupUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { name: undefined, imageKey: storageKey },
+        }),
+      );
+      expect(mediaService.deleteObject).toHaveBeenCalledWith(
+        'groups/group-1/old.png',
+      );
+    });
+
+    it('clears the group image key and deletes the prior S3 object', async () => {
+      const groupUpdate = jest.fn().mockResolvedValue({
+        id: 'group-1',
+        name: 'Family',
+        imageKey: null,
+        memberships: [],
+      });
+      const deleteObject = jest.fn();
+      const service = new GroupService(
+        { group: { update: groupUpdate } } as never,
+        {} as never,
+        { deleteObject } as never,
+      );
+
+      await service.removeImage({
+        id: 'group-1',
+        name: 'Family',
+        imageKey: 'groups/group-1/old.png',
+        memberships: [],
+      } as never);
+
+      expect(groupUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { name: undefined, imageKey: null } }),
+      );
+      expect(deleteObject).toHaveBeenCalledWith('groups/group-1/old.png');
+    });
+  });
+
   // ─── transferLeadership ───────────────────────────────────────────────────
 
   it('demotes the current leader and promotes the new leader in a transaction', async () => {

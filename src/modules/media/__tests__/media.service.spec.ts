@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -12,6 +13,7 @@ import {
 } from '../../../lib/constants/media.constants';
 import {
   generateDiaryPhotoStorageKey,
+  generateGroupImageStorageKey,
   generateProfileImageStorageKey,
 } from '../media.utils';
 
@@ -93,6 +95,12 @@ describe('MediaService', () => {
       expect(key).toMatch(/^profiles\/user-123\/[0-9a-f-]{36}\.webp$/);
     });
 
+    it('creates a group key that is isolated by group and uses the MIME extension', () => {
+      const key = generateGroupImageStorageKey('group-123', 'image/png');
+
+      expect(key).toMatch(/^groups\/group-123\/[0-9a-f-]{36}\.png$/);
+    });
+
     it('rejects unsupported MIME types and unsafe resource IDs', () => {
       expect(() => generateDiaryPhotoStorageKey('entry', 'image/gif')).toThrow(
         BadRequestException,
@@ -102,36 +110,100 @@ describe('MediaService', () => {
       ).toThrow(BadRequestException);
     });
 
-    describe('createDiaryPhotoUpload', () => {
-      it('returns a signed URL and a server-generated storage key', async () => {
+    describe('profile and group image uploads', () => {
+      it('creates signed URLs with isolated profile and group image keys', async () => {
+        jest
+          .mocked(getSignedUrl)
+          .mockResolvedValue('https://maru-test-media.s3.amazonaws.com/upload');
+
+        const profileUpload = await mediaService.createProfileImageUpload(
+          'user-123',
+          { mimeType: 'image/jpeg', sizeBytes: 1024 },
+        );
+        const groupUpload = await mediaService.createGroupImageUpload(
+          'group-123',
+          { mimeType: 'image/webp', sizeBytes: 1024 },
+        );
+
+        expect(profileUpload.storageKey).toMatch(
+          /^profiles\/user-123\/.*\.jpg$/,
+        );
+        expect(groupUpload.storageKey).toMatch(/^groups\/group-123\/.*\.webp$/);
+      });
+
+      it('rejects image keys for another resource or with a mismatched MIME type', () => {
+        expect(() =>
+          mediaService.validateProfileImageStorageKey(
+            'user-123',
+            'profiles/other-user/550e8400-e29b-41d4-a716-446655440000.jpg',
+            'image/jpeg',
+          ),
+        ).toThrow(BadRequestException);
+        expect(() =>
+          mediaService.validateGroupImageStorageKey(
+            'group-123',
+            'groups/group-123/550e8400-e29b-41d4-a716-446655440000.jpg',
+            'image/png',
+          ),
+        ).toThrow(BadRequestException);
+      });
+    });
+
+    describe('createImageUpload', () => {
+      it.each([
+        'diary-entries/entry_123/photos/photo.png',
+        'profiles/user_123/photo.png',
+        'groups/group_123/photo.png',
+      ])('returns a signed URL for the supplied key %s', async (storageKey) => {
         const signedUrl = 'https://maru-test-media.s3.amazonaws.com/upload';
         jest.mocked(getSignedUrl).mockResolvedValue(signedUrl);
 
-        const result = await mediaService.createDiaryPhotoUpload('entry_123', {
+        const result = await mediaService.createImageUpload(storageKey, {
           mimeType: 'image/png',
           sizeBytes: 1024,
         });
 
-        expect(result.uploadUrl).toBe(signedUrl);
-        expect(result.storageKey).toMatch(
-          /^diary-entries\/entry_123\/photos\/[0-9a-f-]{36}\.png$/,
-        );
+        expect(result).toEqual({ uploadUrl: signedUrl, storageKey });
         expect(getSignedUrl).toHaveBeenCalledWith(
           s3Service.client,
-          expect.anything(),
+          expect.any(PutObjectCommand),
           { expiresIn: 300 },
         );
+        expect(jest.mocked(getSignedUrl).mock.calls[0][1].input).toEqual({
+          Bucket: s3Service.bucket,
+          Key: storageKey,
+          ContentType: 'image/png',
+          ContentLength: 1024,
+        });
       });
 
-      it('rejects invalid image metadata before requesting a signed URL', async () => {
+      it.each([
+        { mimeType: 'image/gif', sizeBytes: 1024 },
+        { mimeType: 'image/png', sizeBytes: maxImageSizeBytes + 1 },
+        { mimeType: 'image/png', sizeBytes: 0 },
+        { mimeType: 'image/png', sizeBytes: 1024, width: 0 },
+        { mimeType: 'image/png', sizeBytes: 1024, height: 0 },
+      ])('rejects invalid metadata %p before signing', async (metadata) => {
         await expect(
-          mediaService.createDiaryPhotoUpload('entry_123', {
-            mimeType: 'image/gif',
-            sizeBytes: 1024,
-          }),
+          mediaService.createImageUpload(
+            'diary-entries/entry_123/photos/photo.png',
+            metadata,
+          ),
         ).rejects.toThrow(BadRequestException);
 
         expect(getSignedUrl).not.toHaveBeenCalled();
+      });
+
+      it('propagates signing failures', async () => {
+        const error = new Error('Signing failed');
+        jest.mocked(getSignedUrl).mockRejectedValue(error);
+
+        await expect(
+          mediaService.createImageUpload(
+            'diary-entries/entry_123/photos/photo.png',
+            { mimeType: 'image/png', sizeBytes: 1024 },
+          ),
+        ).rejects.toThrow(error);
       });
     });
 
