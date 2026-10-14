@@ -710,4 +710,78 @@ describe('DiaryController (e2e)', () => {
     const body = response.body as { members: { entry: null }[] };
     expect(body.members[0].entry).toBeNull();
   });
+
+  it('returns the current user and all-member activity dates for a month', async () => {
+    const [leader, member] = await Promise.all([
+      registerAndLogin('activity-leader@example.com'),
+      registerAndLogin('activity-member@example.com'),
+    ]);
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+    await prismaService.groupMember.create({
+      data: { groupId, userId: member.userId, role: 'MEMBER' },
+    });
+
+    await Promise.all(
+      [leader.userId, member.userId].map((userId) =>
+        prismaService.diaryEntry.create({
+          data: {
+            groupId,
+            userId,
+            diaryDate: new Date('2026-08-01T00:00:00.000Z'),
+          },
+        }),
+      ),
+    );
+    await prismaService.diaryEntry.create({
+      data: {
+        groupId,
+        userId: leader.userId,
+        diaryDate: new Date('2026-08-02T00:00:00.000Z'),
+      },
+    });
+
+    const response = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/activity`)
+      .query({ month: '2026-08' })
+      .set('Cookie', leader.sessionCookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      month: '2026-08',
+      recordedDates: ['2026-08-01', '2026-08-02'],
+      allMembersRecordedDates: ['2026-08-01'],
+    });
+  });
+
+  it('requires a valid month and group membership for monthly activity', async () => {
+    const [leader, nonMember] = await Promise.all([
+      registerAndLogin('activity-access-leader@example.com'),
+      registerAndLogin('activity-access-nonmember@example.com'),
+    ]);
+    const groupId = await createGroupAsLeader(leader.sessionCookie);
+
+    const missingMonth = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/activity`)
+      .set('Cookie', leader.sessionCookie);
+    const malformedMonth = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/activity`)
+      .query({ month: '2026-13' })
+      .set('Cookie', leader.sessionCookie);
+    const forbidden = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/activity`)
+      .query({ month: '2026-08' })
+      .set('Cookie', nonMember.sessionCookie);
+
+    expect(missingMonth.status).toBe(400);
+    expect(malformedMonth.status).toBe(400);
+    expect(forbidden.status).toBe(403);
+  });
 });

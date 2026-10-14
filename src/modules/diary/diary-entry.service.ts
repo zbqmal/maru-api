@@ -19,6 +19,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { DailyQuestionService } from '../daily-question/daily-question.service';
 import { MediaService } from '../media/media.service';
+import type { MonthlyActivityRow } from './dto/monthly-activity-response.dto';
 
 type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 
@@ -317,6 +318,50 @@ export class DiaryEntryService {
       ...m,
       entry: entryByUserId.get(m.userId) ?? null,
     }));
+  }
+
+  async getMonthlyActivity(
+    groupId: string,
+    userId: string,
+    month: string,
+  ): Promise<MonthlyActivityRow[]> {
+    const [year, monthNumber] = month.split('-').map(Number);
+    const nextMonth =
+      monthNumber === 12
+        ? `${String(year + 1).padStart(4, '0')}-01-01`
+        : `${String(year).padStart(4, '0')}-${String(monthNumber + 1).padStart(2, '0')}-01`;
+
+    return this.prismaService.$queryRaw<MonthlyActivityRow[]>`
+      WITH group_member_count AS (
+        SELECT COUNT(*) AS total_members
+        FROM group_members
+        WHERE group_id = ${groupId}
+      ),
+      daily_activity AS (
+        SELECT
+          TO_CHAR(diary_entries.diary_date, 'YYYY-MM-DD') AS date,
+          BOOL_OR(diary_entries.user_id = ${userId}) AS current_user_recorded,
+          COUNT(DISTINCT diary_entries.user_id) AS recorded_member_count
+        FROM diary_entries
+        INNER JOIN group_members
+          ON group_members.group_id = diary_entries.group_id
+          AND group_members.user_id = diary_entries.user_id
+        WHERE diary_entries.group_id = ${groupId}
+          AND diary_entries.diary_date >= ${`${month}-01`}::date
+          AND diary_entries.diary_date < ${nextMonth}::date
+        GROUP BY diary_entries.diary_date
+      )
+      SELECT
+        daily_activity.date AS date,
+        daily_activity.current_user_recorded AS "currentUserRecorded",
+        daily_activity.recorded_member_count = group_member_count.total_members
+          AS "allMembersRecorded"
+      FROM daily_activity
+      CROSS JOIN group_member_count
+      WHERE daily_activity.current_user_recorded
+        OR daily_activity.recorded_member_count = group_member_count.total_members
+      ORDER BY daily_activity.date ASC
+    `;
   }
 
   async getTodaysDiaryContext(

@@ -41,6 +41,11 @@ import {
   toDiaryContextResponseDto,
 } from './dto/diary-context-response.dto';
 import { GetDiaryContextQueryDto } from './dto/get-diary-context-query.dto';
+import { GetMonthlyActivityQueryDto } from './dto/get-monthly-activity-query.dto';
+import {
+  MonthlyActivityResponseDto,
+  toMonthlyActivityResponseDto,
+} from './dto/monthly-activity-response.dto';
 import {
   GroupDailyFeedResponseDto,
   toGroupDailyFeedResponseDto,
@@ -163,6 +168,35 @@ export class DiaryController {
     );
 
     return toGroupDailyFeedResponseDto(diaryDate, memberships, resolvePhotoUrl);
+  }
+
+  @ApiOperation({
+    summary: "Get a group's monthly diary activity",
+    description:
+      'Returns the dates when the current user recorded and when every current group member recorded during the requested calendar month. Diary dates are local calendar dates stored by the group.',
+  })
+  @ApiOkResponse({
+    description: 'Monthly diary activity.',
+    type: MonthlyActivityResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'month must be a valid month in YYYY-MM format.',
+  })
+  @ApiForbiddenResponse({ description: 'Group membership required.' })
+  @UseGuards(GroupMemberGuard)
+  @Get('activity')
+  async getMonthlyActivity(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Query() query: GetMonthlyActivityQueryDto,
+  ): Promise<MonthlyActivityResponseDto> {
+    const rows = await this.diaryEntryService.getMonthlyActivity(
+      groupId,
+      user.id,
+      query.month,
+    );
+
+    return toMonthlyActivityResponseDto(query.month, rows);
   }
 
   @ApiOperation({

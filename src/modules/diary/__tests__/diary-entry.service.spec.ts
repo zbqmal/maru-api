@@ -33,6 +33,7 @@ describe('DiaryEntryService', () => {
 
   const prismaService = {
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
     diaryEntry: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -836,6 +837,33 @@ describe('DiaryEntryService', () => {
       id,
       name,
       profileImageKey: null,
+    });
+
+    describe('getMonthlyActivity', () => {
+      it('returns activity rows from one grouped query', async () => {
+        const rows = [
+          {
+            date: '2024-06-01',
+            currentUserRecorded: true,
+            allMembersRecorded: true,
+          },
+          {
+            date: '2024-06-02',
+            currentUserRecorded: true,
+            allMembersRecorded: false,
+          },
+        ];
+        prismaService.$queryRaw.mockResolvedValue(rows);
+
+        const result = await makeService().getMonthlyActivity(
+          'group-1',
+          'user-1',
+          '2024-06',
+        );
+
+        expect(result).toEqual(rows);
+        expect(prismaService.$queryRaw).toHaveBeenCalledTimes(1);
+      });
     });
 
     const makeMembership = (
