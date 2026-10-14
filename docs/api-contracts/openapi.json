@@ -1387,6 +1387,62 @@
         ]
       }
     },
+    "/groups/{groupId}/diary/activity": {
+      "get": {
+        "description": "Returns the dates when the current user recorded and when every current group member recorded during the requested calendar month. Diary dates are local calendar dates stored by the group.",
+        "operationId": "DiaryController_getMonthlyActivity",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "description": "The calendar month to retrieve in YYYY-MM format.",
+            "schema": {
+              "example": "2026-08",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monthly diary activity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyActivityResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "month must be a valid month in YYYY-MM format."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Group membership required."
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get a group's monthly diary activity",
+        "tags": [
+          "Diary"
+        ]
+      }
+    },
     "/groups/{groupId}/diary/answers": {
       "post": {
         "description": "Creates the caller's answer for a custom question on the given date. If the user has no diary entry for that date yet, one is created automatically.",
@@ -2686,6 +2742,37 @@
         "required": [
           "date",
           "members"
+        ]
+      },
+      "MonthlyActivityResponseDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "example": "2026-08",
+            "format": "month"
+          },
+          "recordedDates": {
+            "description": "Dates on which the current user recorded a diary entry.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "allMembersRecordedDates": {
+            "description": "Dates on which every current group member recorded.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "required": [
+          "month",
+          "recordedDates",
+          "allMembersRecordedDates"
         ]
       },
       "CreateAnswerDto": {

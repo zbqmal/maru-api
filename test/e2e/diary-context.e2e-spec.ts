@@ -767,6 +767,11 @@ describe('DiaryController (e2e)', () => {
     )
       .get(`/groups/${groupId}/diary/activity`)
       .set('Cookie', leader.sessionCookie);
+    const unauthenticated = await request(
+      app.getHttpServer() as Parameters<typeof request>[0],
+    )
+      .get(`/groups/${groupId}/diary/activity`)
+      .query({ month: '2026-08' });
     const malformedMonth = await request(
       app.getHttpServer() as Parameters<typeof request>[0],
     )
@@ -781,6 +786,7 @@ describe('DiaryController (e2e)', () => {
       .set('Cookie', nonMember.sessionCookie);
 
     expect(missingMonth.status).toBe(400);
+    expect(unauthenticated.status).toBe(401);
     expect(malformedMonth.status).toBe(400);
     expect(forbidden.status).toBe(403);
   });
