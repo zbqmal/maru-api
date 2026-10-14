@@ -29,6 +29,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { GroupMemberGuard } from '../group/guards/group-member.guard';
 import { MediaService } from '../media/media.service';
+import { generateDiaryPhotoStorageKey } from '../media/media.utils';
 import { DiaryEntryService } from './diary-entry.service';
 import {
   AnswerResponseDto,
@@ -262,7 +263,10 @@ export class DiaryController {
       user.id,
     );
 
-    return this.mediaService.createDiaryPhotoUpload(diaryEntryId, dto);
+    return this.mediaService.createImageUpload(
+      generateDiaryPhotoStorageKey(diaryEntryId, dto.mimeType),
+      dto,
+    );
   }
 
   @ApiOperation({

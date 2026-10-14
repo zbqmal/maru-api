@@ -12,7 +12,6 @@ import {
 } from '../../lib/constants/media.constants';
 import {
   extensionFor,
-  generateDiaryPhotoStorageKey,
   generateGroupImageStorageKey,
   generateProfileImageStorageKey,
   isSupportedImageMimeType,
@@ -62,30 +61,6 @@ export class MediaService {
     if (height !== undefined && (!Number.isInteger(height) || height < 1)) {
       throw new BadRequestException('Photo height must be a positive integer.');
     }
-  }
-
-  async createDiaryPhotoUpload(
-    diaryEntryId: string,
-    metadata: ImageUploadMetadata,
-  ): Promise<PresignedUpload> {
-    this.validateImageUpload(metadata);
-
-    const storageKey = generateDiaryPhotoStorageKey(
-      diaryEntryId,
-      metadata.mimeType,
-    );
-    const uploadUrl = await getSignedUrl(
-      this.s3Service.client,
-      new PutObjectCommand({
-        Bucket: this.s3Service.bucket,
-        Key: storageKey,
-        ContentType: metadata.mimeType,
-        ContentLength: metadata.sizeBytes,
-      }),
-      { expiresIn: 300 },
-    );
-
-    return { uploadUrl, storageKey };
   }
 
   createProfileImageUpload(
@@ -184,7 +159,7 @@ export class MediaService {
     );
   }
 
-  private async createImageUpload(
+  async createImageUpload(
     storageKey: string,
     metadata: ImageUploadMetadata,
   ): Promise<PresignedUpload> {
