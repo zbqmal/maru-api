@@ -1,6 +1,7 @@
 import { SupportedImageMimeType } from '../types/media.types';
 
 export const maxImageSizeBytes = 10 * 1024 * 1024; // 10 MB
+export const diaryPhotoViewUrlExpiresInSeconds = 15 * 60; // 15 minutes
 
 export const MIME_TYPE_EXTENSIONS = {
   'image/jpeg': 'jpg',

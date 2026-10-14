@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Answer, DiaryEntry, GroupMember, Photo, User } from '@prisma/client';
 import { AnswerResponseDto, toAnswerResponseDto } from './answer-response.dto';
 import { PhotoResponseDto, toPhotoResponseDto } from './photo-response.dto';
+type PhotoUrlResolver = (storageKey: string) => string;
 
 type UserSummary = Pick<User, 'id' | 'name' | 'profileImageKey'>;
 type MembershipWithUserAndEntry = GroupMember & {
@@ -62,6 +63,7 @@ export class GroupDailyFeedResponseDto {
 export function toGroupDailyFeedResponseDto(
   date: Date,
   memberships: MembershipWithUserAndEntry[],
+  resolvePhotoUrl: PhotoUrlResolver,
 ): GroupDailyFeedResponseDto {
   return {
     date: date.toISOString().split('T')[0],
@@ -77,7 +79,9 @@ export function toGroupDailyFeedResponseDto(
             id: m.entry.id,
             diaryDate: m.entry.diaryDate.toISOString().split('T')[0],
             answers: m.entry.answers.map(toAnswerResponseDto),
-            photos: m.entry.photos.map(toPhotoResponseDto),
+            photos: m.entry.photos.map((photo) =>
+              toPhotoResponseDto(photo, resolvePhotoUrl(photo.storageKey)),
+            ),
             createdAt: m.entry.createdAt.toISOString(),
             updatedAt: m.entry.updatedAt.toISOString(),
           }

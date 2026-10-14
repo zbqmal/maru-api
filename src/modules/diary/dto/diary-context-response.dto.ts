@@ -16,6 +16,7 @@ import {
   toDailyQuestionResponseDto,
 } from '../../daily-question/dto/daily-question-response.dto';
 import { PhotoResponseDto, toPhotoResponseDto } from './photo-response.dto';
+type PhotoUrlResolver = (storageKey: string) => string;
 
 export class DiaryEntryContextDto {
   @ApiProperty()
@@ -52,6 +53,7 @@ export function toDiaryContextResponseDto(
   questions: GroupQuestion[],
   dailyQuestion: DailyQuestion | null,
   entry: (DiaryEntry & { answers: Answer[]; photos: Photo[] }) | null,
+  resolvePhotoUrl: PhotoUrlResolver,
 ): DiaryContextResponseDto {
   return {
     questions: questions.map(toGroupQuestionResponseDto),
@@ -63,7 +65,9 @@ export function toDiaryContextResponseDto(
           id: entry.id,
           diaryDate: entry.diaryDate.toISOString().split('T')[0],
           answers: entry.answers.map(toAnswerResponseDto),
-          photos: entry.photos.map(toPhotoResponseDto),
+          photos: entry.photos.map((photo) =>
+            toPhotoResponseDto(photo, resolvePhotoUrl(photo.storageKey)),
+          ),
           createdAt: entry.createdAt.toISOString(),
           updatedAt: entry.updatedAt.toISOString(),
         }

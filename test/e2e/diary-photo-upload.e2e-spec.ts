@@ -16,6 +16,7 @@ describe('Diary photo upload (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   const createDiaryPhotoUpload = jest.fn();
+  const createDiaryPhotoViewUrl = jest.fn();
   const validateImageUpload = jest.fn();
   const validateDiaryPhotoStorageKey = jest.fn();
   const deleteObject = jest.fn();
@@ -29,6 +30,7 @@ describe('Diary photo upload (e2e)', () => {
       .overrideProvider(MediaService)
       .useValue({
         createDiaryPhotoUpload,
+        createDiaryPhotoViewUrl,
         validateImageUpload,
         validateDiaryPhotoStorageKey,
         deleteObject,
@@ -55,6 +57,9 @@ describe('Diary photo upload (e2e)', () => {
       uploadUrl: 'https://example.com/presigned-upload',
       storageKey: 'diary-entries/entry/photos/photo.jpg',
     });
+    createDiaryPhotoViewUrl.mockResolvedValue(
+      'https://example.com/presigned-view',
+    );
     validateDiaryPhotoStorageKey.mockImplementation(
       (diaryEntryId: string, storageKey: string) => {
         if (!storageKey.startsWith(`diary-entries/${diaryEntryId}/photos/`)) {
@@ -218,12 +223,14 @@ describe('Diary photo upload (e2e)', () => {
       diaryEntryId: entry.id,
       uploadedByUserId: user.userId,
       storageKey,
+      url: 'https://example.com/presigned-view',
       mimeType: 'image/jpeg',
       width: 1200,
       height: 900,
       sizeBytes: 1024,
       displayOrder: 0,
     });
+    expect(createDiaryPhotoViewUrl).toHaveBeenCalledWith(storageKey);
   });
 
   it('rejects duplicate, unowned, and invalid photo registration requests', async () => {

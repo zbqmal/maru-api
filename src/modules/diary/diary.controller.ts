@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  InternalServerErrorException,
   HttpStatus,
   Param,
   Patch,
@@ -60,6 +61,32 @@ export class DiaryController {
     private readonly mediaService: MediaService,
   ) {}
 
+  private async createPhotoUrlResolver(
+    storageKeys: readonly string[],
+  ): Promise<(storageKey: string) => string> {
+    const uniqueStorageKeys = [...new Set(storageKeys)];
+    const urls = await Promise.all(
+      uniqueStorageKeys.map((storageKey) =>
+        this.mediaService.createDiaryPhotoViewUrl(storageKey),
+      ),
+    );
+    const photoUrlsByStorageKey = new Map(
+      uniqueStorageKeys.map((storageKey, index) => [storageKey, urls[index]]),
+    );
+
+    return (storageKey: string): string => {
+      const url = photoUrlsByStorageKey.get(storageKey);
+
+      if (!url) {
+        throw new InternalServerErrorException(
+          `Missing presigned URL for photo storage key: ${storageKey}`,
+        );
+      }
+
+      return url;
+    };
+  }
+
   @ApiOperation({
     summary: 'Get diary context for a given date',
     description:
@@ -89,10 +116,15 @@ export class DiaryController {
       diaryDate,
     );
 
+    const resolvePhotoUrl = await this.createPhotoUrlResolver(
+      context.entry?.photos.map((photo) => photo.storageKey) ?? [],
+    );
+
     return toDiaryContextResponseDto(
       context.questions,
       context.dailyQuestion,
       context.entry,
+      resolvePhotoUrl,
     );
   }
 
@@ -122,7 +154,14 @@ export class DiaryController {
       diaryDate,
     );
 
-    return toGroupDailyFeedResponseDto(diaryDate, memberships);
+    const resolvePhotoUrl = await this.createPhotoUrlResolver(
+      memberships.flatMap(
+        (membership) =>
+          membership.entry?.photos.map((photo) => photo.storageKey) ?? [],
+      ),
+    );
+
+    return toGroupDailyFeedResponseDto(diaryDate, memberships, resolvePhotoUrl);
   }
 
   @ApiOperation({
@@ -262,7 +301,11 @@ export class DiaryController {
       sizeBytes: dto.sizeBytes,
     });
 
-    return toPhotoResponseDto(photo);
+    const url = await this.mediaService.createDiaryPhotoViewUrl(
+      photo.storageKey,
+    );
+
+    return toPhotoResponseDto(photo, url);
   }
 
   @ApiOperation({ summary: 'Delete a diary photo' })
