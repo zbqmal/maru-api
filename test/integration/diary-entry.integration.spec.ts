@@ -174,6 +174,54 @@ describe('DiaryEntryService (integration)', () => {
     expect(count).toBe(2);
   });
 
+  it('returns monthly activity for current group members only and excludes adjacent months', async () => {
+    const { leader, member, group } = await createFixture();
+    const formerMember = await prismaService.user.create({
+      data: {
+        email: 'diary-former-member@example.com',
+        passwordHash: 'placeholder',
+        name: 'Former Member',
+      },
+    });
+    const entries = [
+      { userId: leader.id, date: '2024-05-31' },
+      { userId: leader.id, date: '2024-06-01' },
+      { userId: member.id, date: '2024-06-01' },
+      { userId: leader.id, date: '2024-06-02' },
+      { userId: member.id, date: '2024-06-03' },
+      { userId: formerMember.id, date: '2024-06-01' },
+      { userId: leader.id, date: '2024-07-01' },
+      { userId: member.id, date: '2024-07-01' },
+    ];
+
+    await Promise.all(
+      entries.map(({ userId, date }) =>
+        prismaService.diaryEntry.create({
+          data: {
+            groupId: group.id,
+            userId,
+            diaryDate: new Date(`${date}T00:00:00.000Z`),
+          },
+        }),
+      ),
+    );
+
+    await expect(
+      diaryEntryService.getMonthlyActivity(group.id, leader.id, '2024-06'),
+    ).resolves.toEqual([
+      {
+        date: '2024-06-01',
+        currentUserRecorded: true,
+        allMembersRecorded: true,
+      },
+      {
+        date: '2024-06-02',
+        currentUserRecorded: true,
+        allMembersRecorded: false,
+      },
+    ]);
+  });
+
   it('throws NotFoundException when creating an entry for a non-existent group', async () => {
     const { leader, diaryDate } = await createFixture();
 
